@@ -1,4 +1,4 @@
-import RecipeForm from "./pages/RecipeWizard/RecipeForm";
+import RecipeForm from "./pages/RecipeWizard";
 
 export default function App() {
   return (

@@ -21,6 +21,7 @@ export const proteinTiles = [
 export const steps = [
   { key: "basics", label: "Basics" },
   { key: "ingredients", label: "Ingredients" },
+  { key: "method", label: "Method" },
   { key: "photo", label: "Photo" },
   { key: "review", label: "Review" },
 ];
@@ -32,5 +33,6 @@ export const emptyRecipe = {
   cookTime: "",
   tags: "",
   ingredients: [{ quantity: "", unit: "", name: "" }],
+  method: [{ text: "" }],
   image: null,
 };

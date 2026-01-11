@@ -9,7 +9,6 @@ export default function ReviewStep({ recipe, imageUrl }) {
           <Check className="h-5 w-5 text-green-700" />
           <div className="text-sm font-medium text-gray-900">Review</div>
         </div>
-
         <div className="mt-3 space-y-2 text-sm text-gray-700">
           <div className="flex justify-between gap-3">
             <span className="text-gray-500">Name</span>
@@ -42,7 +41,6 @@ export default function ReviewStep({ recipe, imageUrl }) {
             </span>
           </div>
         </div>
-
         <div className="mt-4">
           <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             Ingredients
@@ -57,7 +55,24 @@ export default function ReviewStep({ recipe, imageUrl }) {
               ))}
           </ul>
         </div>
+        // inside ReviewStep.jsx, after Ingredients block (recommended)
+        <div className="mt-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Method
+          </div>
 
+          <ol className="mt-2 list-decimal pl-5 text-sm text-gray-800 space-y-1">
+            {recipe.method
+              .filter((s) => s.text.trim())
+              .map((s, idx) => (
+                <li key={idx}>{s.text}</li>
+              ))}
+          </ol>
+
+          {recipe.method.filter((s) => s.text.trim()).length === 0 && (
+            <div className="mt-1 text-sm text-gray-500">—</div>
+          )}
+        </div>
         {recipe.image ? (
           <div className="mt-4">
             <img
@@ -67,7 +82,6 @@ export default function ReviewStep({ recipe, imageUrl }) {
             />
           </div>
         ) : null}
-
         <button
           type="submit"
           className="mt-5 w-full rounded-2xl bg-green-600 py-3 text-sm font-semibold text-white shadow-sm active:opacity-80"

@@ -4,8 +4,9 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { emptyRecipe, steps } from "./constants";
 import StepPill from "./components/StepPill";
 
-import BasicsStep from "./steps/BasicStep";
+import BasicStep from "./steps/BasicStep";
 import IngredientsStep from "./steps/IngredientsStep";
+import MethodStep from "./steps/MethodStep"; // <-- add
 import PhotoStep from "./steps/PhotoStep";
 import ReviewStep from "./steps/ReviewStep";
 
@@ -27,10 +28,7 @@ export default function RecipeForm() {
   const addIngredient = () => {
     setRecipe({
       ...recipe,
-      ingredients: [
-        ...recipe.ingredients,
-        { quantity: "", unit: "", name: "" },
-      ],
+      ingredients: [...recipe.ingredients, { quantity: "", unit: "", name: "" }],
     });
   };
 
@@ -42,21 +40,42 @@ export default function RecipeForm() {
     });
   };
 
+  const handleMethodChange = (index, value) => {
+    const updated = [...recipe.method];
+    updated[index] = { ...updated[index], text: value };
+    setRecipe({ ...recipe, method: updated });
+  };
+
+  const addMethodStep = () => {
+    setRecipe({
+      ...recipe,
+      method: [...recipe.method, { text: "" }],
+    });
+  };
+
+  const removeMethodStep = (index) => {
+    const updated = recipe.method.filter((_, i) => i !== index);
+    setRecipe({
+      ...recipe,
+      method: updated.length ? updated : recipe.method,
+    });
+  };
+
   const currentStep = steps[stepIndex];
 
-  // validation per step
   const basicsValid =
     recipe.name.trim().length > 0 &&
     recipe.protein.trim().length > 0 &&
     Number(recipe.portions) > 0;
 
-  const ingredientsValid = recipe.ingredients.some(
-    (i) => i.name.trim().length > 0
-  );
+  const ingredientsValid = recipe.ingredients.some((i) => i.name.trim().length > 0);
+
+  const methodValid = recipe.method.some((s) => s.text.trim().length > 0);
 
   const canGoNext =
     (currentStep.key === "basics" && basicsValid) ||
     (currentStep.key === "ingredients" && ingredientsValid) ||
+    (currentStep.key === "method" && methodValid) ||
     currentStep.key === "photo" ||
     currentStep.key === "review";
 
@@ -104,11 +123,7 @@ export default function RecipeForm() {
       {/* Step pills */}
       <div className="flex flex-wrap gap-2">
         {steps.map((s, idx) => (
-          <StepPill
-            key={s.key}
-            active={idx === stepIndex}
-            done={idx < stepIndex}
-          >
+          <StepPill key={s.key} active={idx === stepIndex} done={idx < stepIndex}>
             {s.label}
           </StepPill>
         ))}
@@ -116,11 +131,7 @@ export default function RecipeForm() {
 
       <form id="recipeWizard" onSubmit={onSubmit} className="space-y-4">
         {currentStep.key === "basics" && (
-          <BasicsStep
-            recipe={recipe}
-            setRecipe={setRecipe}
-            basicsValid={basicsValid}
-          />
+          <BasicStep recipe={recipe} setRecipe={setRecipe} basicsValid={basicsValid} />
         )}
 
         {currentStep.key === "ingredients" && (
@@ -133,12 +144,18 @@ export default function RecipeForm() {
           />
         )}
 
-        {currentStep.key === "photo" && (
-          <PhotoStep
+        {currentStep.key === "method" && (
+          <MethodStep
             recipe={recipe}
-            setRecipe={setRecipe}
-            imageUrl={imageUrl}
+            handleMethodChange={handleMethodChange}
+            addMethodStep={addMethodStep}
+            removeMethodStep={removeMethodStep}
+            methodValid={methodValid}
           />
+        )}
+
+        {currentStep.key === "photo" && (
+          <PhotoStep recipe={recipe} setRecipe={setRecipe} imageUrl={imageUrl} />
         )}
 
         {currentStep.key === "review" && (
