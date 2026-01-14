@@ -48,9 +48,14 @@ export default function BasicsStep({ recipe, setRecipe, basicsValid }) {
             min="1"
             className="w-20 bg-transparent text-right text-sm text-gray-900 outline-none"
             value={recipe.portions}
-            onChange={(e) =>
-              setRecipe({ ...recipe, portions: Number(e.target.value) })
-            }
+            onChange={(e) => {
+              const raw = e.target.value;
+              const next = raw === "" ? 1 : Number(raw);
+              setRecipe({
+                ...recipe,
+                portions: Number.isFinite(next) && next > 0 ? next : 1,
+              });
+            }}
           />
         }
       />

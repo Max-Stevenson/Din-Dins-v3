@@ -3,6 +3,7 @@ const cors = require("cors");
 
 const recipesRoutes = require("./routes/recipesRoutes");
 const devUser = require("./middleware/devUser");
+const mealPlansRoutes = require("./routes/mealPlansRoutes");
 
 const app = express();
 
@@ -18,6 +19,8 @@ app.use(devUser);
 
 // routes
 app.use("/api/v1/recipes", recipesRoutes);
+app.use("/api/v1/meal-plans", mealPlansRoutes);
+
 
 // error handler
 app.use((err, _req, res, next) => {

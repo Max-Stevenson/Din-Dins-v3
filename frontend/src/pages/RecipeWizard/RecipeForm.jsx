@@ -6,7 +6,7 @@ import StepPill from "./components/StepPill";
 
 import BasicStep from "./steps/BasicStep";
 import IngredientsStep from "./steps/IngredientsStep";
-import MethodStep from "./steps/MethodStep"; // <-- add
+import MethodStep from "./steps/MethodStep";
 import PhotoStep from "./steps/PhotoStep";
 import ReviewStep from "./steps/ReviewStep";
 
@@ -87,11 +87,43 @@ export default function RecipeForm() {
     setStepIndex(0);
   };
 
-  const onSubmit = (e) => {
-    e.preventDefault();
-    console.log("Submitting recipe:", recipe);
-    reset();
+  const onSubmit = async (e) => {
+  e.preventDefault();
+
+  const tagsArray = recipe.tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+
+  const payload = {
+    name: recipe.name,
+    protein: recipe.protein,
+    portions: recipe.portions,
+    cookTime: recipe.cookTime,
+    tags: tagsArray,
+    ingredients: recipe.ingredients,
+    method: recipe.method,
+    imageUrl: "", // later
   };
+
+  try {
+    const res = await fetch("/api/v1/recipes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || "Failed to save recipe");
+    }
+
+    reset();
+    alert("Saved ✅"); // temp feedback; we’ll replace with a toast later
+  } catch (err) {
+    alert(err.message);
+  }
+};
 
   return (
     <div className="space-y-4">
