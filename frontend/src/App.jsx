@@ -1,32 +1,21 @@
-import { useState } from "react";
-import RecipeForm from "./pages/RecipeWizard/RecipeForm";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import RecipeWizard from "./pages/RecipeWizard/RecipeForm";
 import RecipesList from "./pages/RecipeWizard/RecipesList";
+import MealPlanner from "./pages/RecipeWizard/MealPlanner";
+import BottomNav from "./pages/RecipeWizard/components/BottomNav";
 
 export default function App() {
-  const [view, setView] = useState("list");
-
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="mx-auto max-w-md mb-4 flex gap-2">
-        <button
-          className="px-3 py-2 rounded bg-white"
-          onClick={() => setView("list")}
-        >
-          Recipes
-        </button>
-        <button
-          className="px-3 py-2 rounded bg-white"
-          onClick={() => setView("new")}
-        >
-          New
-        </button>
+    <BrowserRouter>
+      <div className="min-h-screen bg-gray-100 p-4">
+        <Routes>
+          <Route path="/" element={<Navigate to="/meal-planner" replace />} />
+          <Route path="/meal-planner" element={<MealPlanner />} />
+          <Route path="/recipes" element={<RecipesList />} />
+          <Route path="/recipes/new" element={<RecipeWizard />} />
+        </Routes>
+        <BottomNav />
       </div>
-
-      <div className="min-h-screen bg-gray-100 text-gray-900">
-        <div className="mx-auto w-full max-w-md px-4 py-6">
-          {view === "list" ? <RecipesList /> : <RecipeForm />}
-        </div>
-      </div>
-    </div>
+    </BrowserRouter>
   );
 }
