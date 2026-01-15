@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import BottomSheet from "../RecipeWizard/components/BottomSheet";
+import { Search } from "lucide-react";
 
 function todayISO() {
   const d = new Date();
@@ -18,7 +20,77 @@ export default function MealPlanner() {
   const [proposal, setProposal] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // recipes for swapping
+  const [recipes, setRecipes] = useState([]);
+  const [recipesLoading, setRecipesLoading] = useState(true);
+
+  // swap UI state
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swapIndex, setSwapIndex] = useState(null);
+  const [query, setQuery] = useState("");
+
   const meatPercent = useMemo(() => Math.round(meatRatio * 100), [meatRatio]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadRecipes() {
+      setRecipesLoading(true);
+      try {
+        const res = await fetch("/api/v1/recipes");
+        const data = await res.json();
+        if (!ignore) setRecipes(data.items || []);
+      } catch {
+        if (!ignore) setRecipes([]);
+      } finally {
+        if (!ignore) setRecipesLoading(false);
+      }
+    }
+
+    loadRecipes();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const filteredRecipes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return recipes;
+
+    return recipes.filter((r) => {
+      const name = (r.name || "").toLowerCase();
+      const protein = (r.protein || "").toLowerCase();
+      const tags = Array.isArray(r.tags) ? r.tags.join(" ").toLowerCase() : "";
+      return name.includes(q) || protein.includes(q) || tags.includes(q);
+    });
+  }, [recipes, query]);
+
+  const openSwap = (index) => {
+    setSwapIndex(index);
+    setQuery("");
+    setSwapOpen(true);
+  };
+
+  const closeSwap = () => {
+    setSwapOpen(false);
+    setSwapIndex(null);
+    setQuery("");
+  };
+
+  const applySwap = (recipe) => {
+    if (!proposal || swapIndex == null) return;
+
+    const next = structuredClone(proposal); // modern browsers ok; if needed we can replace with a simple copy
+    next.dinners[swapIndex] = {
+      date: next.dinners[swapIndex].date,
+      type: "cook",
+      recipeId: recipe._id,
+      title: recipe.name,
+    };
+
+    setProposal(next);
+    closeSwap();
+  };
 
   const generate = async () => {
     setLoading(true);
@@ -156,19 +228,88 @@ export default function MealPlanner() {
 
           <div className="space-y-2">
             {proposal.dinners.map((d, idx) => (
-              <div key={idx} className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200">
+              <button
+                key={idx}
+                type="button"
+                onClick={() => openSwap(idx)}
+                className="w-full text-left rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200 active:opacity-80"
+              >
                 <div className="text-xs text-gray-500">{d.date}</div>
                 <div className="text-sm font-semibold text-gray-900">
                   {d.title || (d.type === "leftovers" ? "Leftovers" : "Cook")}
                 </div>
                 <div className="text-xs text-gray-600">
-                  {d.type === "leftovers" ? "Use leftovers" : "Cook meal"}
+                  Tap to swap
                 </div>
-              </div>
+              </button>
             ))}
+          </div>
+
+          <div className="text-xs text-gray-500">
+            Swapping currently replaces that day with a “cook” meal (we’ll add leftovers-aware swaps later).
           </div>
         </div>
       ) : null}
+
+      <BottomSheet
+        open={swapOpen}
+        title="Swap dinner"
+        onClose={closeSwap}
+      >
+        {recipesLoading ? (
+          <div className="text-sm text-gray-600 py-4">Loading recipes…</div>
+        ) : recipes.length === 0 ? (
+          <div className="text-sm text-gray-600 py-4">
+            No recipes yet — add some first.
+          </div>
+        ) : (
+          <>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search recipes…"
+                className="w-full rounded-2xl bg-gray-50 pl-9 pr-3 py-2 text-sm ring-1 ring-gray-200 outline-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              {filteredRecipes.slice(0, 60).map((r) => (
+                <button
+                  key={r._id}
+                  type="button"
+                  onClick={() => applySwap(r)}
+                  className="w-full rounded-2xl bg-white p-3 ring-1 ring-gray-200 text-left hover:bg-gray-50 active:opacity-80"
+                >
+                  <div className="text-sm font-semibold text-gray-900">{r.name}</div>
+                  <div className="text-xs text-gray-600">
+                    {r.protein} • {r.portions} portions
+                  </div>
+                  {Array.isArray(r.tags) && r.tags.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {r.tags.slice(0, 4).map((t) => (
+                        <span
+                          key={t}
+                          className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-700"
+                        >
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+
+            {filteredRecipes.length > 60 ? (
+              <div className="mt-2 text-xs text-gray-500">
+                Showing first 60 results — refine your search to narrow it down.
+              </div>
+            ) : null}
+          </>
+        )}
+      </BottomSheet>
     </div>
   );
 }
