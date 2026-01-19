@@ -9,9 +9,7 @@ function Tab({ to, label, Icon }) {
       className={({ isActive }) =>
         [
           "flex flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold transition",
-          isActive
-            ? "bg-blue-50 text-blue-600"
-            : "text-gray-600 hover:bg-gray-50",
+          isActive ? "bg-blue-50 text-blue-600" : "text-gray-600 hover:bg-gray-50",
         ].join(" ")
       }
     >
@@ -23,10 +21,12 @@ function Tab({ to, label, Icon }) {
 
 export default function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 h-20 border-t border-gray-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto max-w-md h-full px-3 py-2">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/90 backdrop-blur">
+      <div className="mx-auto max-w-md px-3 py-2">
         <div className="grid grid-cols-3 gap-2">
-          <Tab to="/meal-planner" label="Plan" Icon={CalendarDays} />
+          {/* ⬇️ changed from /meal-planner */}
+          <Tab to="/meal-plans" label="History" Icon={CalendarDays} />
+
           <Tab to="/recipes" label="Recipes" Icon={BookOpen} />
           <Tab to="/recipes/new" label="New" Icon={PlusCircle} />
         </div>

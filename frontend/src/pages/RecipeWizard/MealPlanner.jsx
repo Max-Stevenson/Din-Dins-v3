@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import BottomSheet from "../RecipeWizard/components/BottomSheet";
 import { Search } from "lucide-react";
 
@@ -11,6 +12,7 @@ function todayISO() {
 }
 
 export default function MealPlanner() {
+  const navigate = useNavigate();
   const [startDate, setStartDate] = useState(todayISO());
   const [days, setDays] = useState(7);
   const [people, setPeople] = useState(2);
@@ -131,7 +133,8 @@ export default function MealPlanner() {
         throw new Error(err.error || "Failed to save plan");
       }
 
-      alert("Meal plan saved ✅");
+      // ✅ tighter loop
+      navigate("/meal-plans");
     } catch (e) {
       alert(e.message);
     } finally {
