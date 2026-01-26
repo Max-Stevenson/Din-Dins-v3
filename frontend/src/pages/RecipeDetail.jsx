@@ -59,7 +59,7 @@ export default function RecipeDetail() {
 
   const tags = useMemo(
     () => (Array.isArray(item?.tags) ? item.tags : []),
-    [item]
+    [item],
   );
 
   return (
@@ -79,14 +79,24 @@ export default function RecipeDetail() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={loading || !item}
-              className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 active:opacity-80"
-            >
-              Delete
-            </button>
+            {item ? (
+              <>
+                <Link
+                  to={`/recipes/${item._id}/edit`}
+                  className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white active:opacity-80"
+                >
+                  Edit
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white active:opacity-80"
+                >
+                  Delete
+                </button>
+              </>
+            ) : null}
 
             <Link
               to="/recipes"

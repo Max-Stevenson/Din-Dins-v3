@@ -16,6 +16,67 @@ router.get("/", async (req, res) => {
   }
 });
 
+// PUT /api/v1/recipes/:id
+router.put("/:id", async (req, res) => {
+  try {
+    const {
+      name,
+      protein,
+      portions,
+      cookTime = "",
+      tags = [],
+      ingredients = [],
+      method = [],
+      imageUrl = "",
+    } = req.body ?? {};
+
+    if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
+    if (!protein?.trim()) return res.status(400).json({ error: "Protein is required" });
+    if (!Number.isFinite(portions) || portions < 1)
+      return res.status(400).json({ error: "Portions must be >= 1" });
+
+    const cleanIngredients = (ingredients || [])
+      .filter((i) => i?.name && String(i.name).trim())
+      .map((i) => ({
+        quantity: String(i.quantity ?? "").trim(),
+        unit: String(i.unit ?? "").trim(),
+        name: String(i.name).trim(),
+      }));
+
+    const cleanMethod = (method || [])
+      .filter((s) => s?.text && String(s.text).trim())
+      .map((s) => ({ text: String(s.text).trim() }));
+
+    const cleanTags = Array.isArray(tags)
+      ? tags.map((t) => String(t).trim()).filter(Boolean)
+      : [];
+
+    const updated = await Recipe.findOneAndUpdate(
+      { _id: req.params.id, userId: req.userId },
+      {
+        name: name.trim(),
+        protein: protein.trim(),
+        portions,
+        cookTime: String(cookTime).trim(),
+        tags: cleanTags,
+        ingredients: cleanIngredients,
+        method: cleanMethod,
+        imageUrl: String(imageUrl).trim(),
+      },
+      { new: true }
+    );
+
+    if (!updated) return res.status(404).json({ error: "Not found" });
+
+    res.json({ item: updated });
+  } catch (err) {
+    if (err?.name === "CastError") {
+      return res.status(400).json({ error: "Invalid recipe id" });
+    }
+    res.status(500).json({ error: "Failed to update recipe" });
+  }
+});
+
 // POST /api/recipes
 router.post("/", async (req, res) => {
   try {

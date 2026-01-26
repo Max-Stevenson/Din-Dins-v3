@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import RecipeWizard from "./pages/RecipeWizard/RecipeForm";
+import EditRecipe from "./pages/EditRecipe";
 import RecipesList from "./pages/RecipeWizard/RecipesList";
 import MealPlanner from "./pages/RecipeWizard/MealPlanner";
 import MealPlanHistory from "./pages/MealPlanHistory";
 import MealPlanDetail from "./pages/MealPlanDetail";
 import RecipeDetail from "./pages/RecipeDetail";
 import BottomNav from "./pages/RecipeWizard/components/BottomNav";
+
 
 export default function App() {
   return (
@@ -19,6 +21,7 @@ export default function App() {
           <Route path="/recipes" element={<RecipesList />} />
           <Route path="/recipes/new" element={<RecipeWizard />} />
           <Route path="/recipes/:id" element={<RecipeDetail />} />
+          <Route path="/recipes/:id/edit" element={<EditRecipe />} />
         </Routes>
         <BottomNav />
       </div>

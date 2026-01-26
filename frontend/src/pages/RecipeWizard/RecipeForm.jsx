@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { emptyRecipe, steps } from "./constants";
@@ -10,9 +10,50 @@ import MethodStep from "./steps/MethodStep";
 import PhotoStep from "./steps/PhotoStep";
 import ReviewStep from "./steps/ReviewStep";
 
-export default function RecipeForm() {
+function normalizeForForm(initial) {
+  if (!initial) return emptyRecipe;
+
+  return {
+    ...emptyRecipe,
+    // Keep anything you may add later on emptyRecipe (like image)
+    name: initial.name ?? "",
+    protein: initial.protein ?? "",
+    portions: Number(initial.portions ?? 1),
+    cookTime: initial.cookTime ?? "",
+    // In DB this is an array; in the form we store as comma-separated string
+    tags: Array.isArray(initial.tags) ? initial.tags.join(", ") : initial.tags ?? "",
+    ingredients: Array.isArray(initial.ingredients) && initial.ingredients.length
+      ? initial.ingredients.map((i) => ({
+          quantity: i?.quantity ?? "",
+          unit: i?.unit ?? "",
+          name: i?.name ?? "",
+        }))
+      : emptyRecipe.ingredients,
+    method: Array.isArray(initial.method) && initial.method.length
+      ? initial.method.map((s) => ({ text: s?.text ?? "" }))
+      : emptyRecipe.method,
+    image: null, // we’re not editing images yet (Cloudinary later)
+  };
+}
+
+export default function RecipeForm({
+  mode = "create", // "create" | "edit"
+  initialRecipe = null,
+  onSubmitRecipe = null, // optional override (used by EditRecipe wrapper)
+}) {
   const [stepIndex, setStepIndex] = useState(0);
-  const [recipe, setRecipe] = useState(emptyRecipe);
+  const [recipe, setRecipe] = useState(() =>
+    mode === "edit" ? normalizeForForm(initialRecipe) : emptyRecipe
+  );
+
+  // If initialRecipe arrives async (edit page fetch), update form state once.
+  useEffect(() => {
+    if (mode !== "edit") return;
+    if (!initialRecipe) return;
+
+    setRecipe(normalizeForForm(initialRecipe));
+    setStepIndex(0);
+  }, [mode, initialRecipe]);
 
   const imageUrl = useMemo(() => {
     if (!recipe.image) return "";
@@ -68,9 +109,13 @@ export default function RecipeForm() {
     recipe.protein.trim().length > 0 &&
     Number(recipe.portions) > 0;
 
-  const ingredientsValid = recipe.ingredients.some((i) => i.name.trim().length > 0);
+  const ingredientsValid = recipe.ingredients.some(
+    (i) => (i?.name || "").trim().length > 0
+  );
 
-  const methodValid = recipe.method.some((s) => s.text.trim().length > 0);
+  const methodValid = recipe.method.some(
+    (s) => (s?.text || "").trim().length > 0
+  );
 
   const canGoNext =
     (currentStep.key === "basics" && basicsValid) ||
@@ -83,47 +128,60 @@ export default function RecipeForm() {
   const goNext = () => setStepIndex((i) => Math.min(steps.length - 1, i + 1));
 
   const reset = () => {
+    // In edit mode, reset back to the loaded recipe rather than empty
+    if (mode === "edit") {
+      setRecipe(normalizeForForm(initialRecipe));
+      setStepIndex(0);
+      return;
+    }
     setRecipe(emptyRecipe);
     setStepIndex(0);
   };
 
   const onSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const tagsArray = recipe.tags
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
+    const tagsArray = String(recipe.tags || "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
 
-  const payload = {
-    name: recipe.name,
-    protein: recipe.protein,
-    portions: recipe.portions,
-    cookTime: recipe.cookTime,
-    tags: tagsArray,
-    ingredients: recipe.ingredients,
-    method: recipe.method,
-    imageUrl: "", // later
-  };
+    const payload = {
+      name: recipe.name,
+      protein: recipe.protein,
+      portions: Number(recipe.portions),
+      cookTime: recipe.cookTime,
+      tags: tagsArray,
+      ingredients: recipe.ingredients,
+      method: recipe.method,
+      imageUrl: "", // later (Cloudinary)
+    };
 
-  try {
-    const res = await fetch("/api/v1/recipes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      // If parent passes submit handler (edit wrapper), use it
+      if (typeof onSubmitRecipe === "function") {
+        await onSubmitRecipe(payload);
+        return;
+      }
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || "Failed to save recipe");
+      // Default create behavior
+      const res = await fetch("/api/v1/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to save recipe");
+      }
+
+      reset();
+      alert("Saved ✅");
+    } catch (err) {
+      alert(err.message);
     }
-
-    reset();
-    alert("Saved ✅"); // temp feedback; we’ll replace with a toast later
-  } catch (err) {
-    alert(err.message);
-  }
-};
+  };
 
   return (
     <div className="space-y-4">
@@ -134,10 +192,12 @@ export default function RecipeForm() {
           onClick={reset}
           className="text-sm font-semibold text-gray-600 active:opacity-70"
         >
-          Cancel
+          {mode === "edit" ? "Reset" : "Cancel"}
         </button>
 
-        <div className="text-sm font-semibold text-gray-900">New Recipe</div>
+        <div className="text-sm font-semibold text-gray-900">
+          {mode === "edit" ? "Edit Recipe" : "New Recipe"}
+        </div>
 
         {currentStep.key === "review" ? (
           <button
