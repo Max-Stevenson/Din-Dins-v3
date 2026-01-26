@@ -75,5 +75,17 @@ router.get("/:id", async (req, res) => {
   res.json({ item });
 });
 
+router.delete("/:id", async (req, res) => {
+  console.log("DELETE hit", { id: req.params.id, userId: req.userId });
+
+  const deleted = await Recipe.findOneAndDelete({
+    _id: req.params.id,
+    userId: req.userId,
+  });
+
+  if (!deleted) return res.status(404).json({ error: "Not found" });
+
+  res.json({ ok: true });
+});
 
 module.exports = router;

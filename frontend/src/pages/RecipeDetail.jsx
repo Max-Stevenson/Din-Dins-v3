@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 function displayQty(qty, unit, name) {
   return [qty, unit, name].filter(Boolean).join(" ");
@@ -7,8 +7,32 @@ function displayQty(qty, unit, name) {
 
 export default function RecipeDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const onDelete = async () => {
+    if (!item?._id) return;
+
+    const ok = window.confirm(`Delete "${item.name}"? This cannot be undone.`);
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/v1/recipes/${item._id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete recipe");
+      }
+
+      navigate("/recipes");
+    } catch (e) {
+      alert(e.message);
+    }
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -33,7 +57,10 @@ export default function RecipeDetail() {
     };
   }, [id]);
 
-  const tags = useMemo(() => (Array.isArray(item?.tags) ? item.tags : []), [item]);
+  const tags = useMemo(
+    () => (Array.isArray(item?.tags) ? item.tags : []),
+    [item]
+  );
 
   return (
     <div className="mx-auto max-w-md space-y-4">
@@ -51,12 +78,23 @@ export default function RecipeDetail() {
             ) : null}
           </div>
 
-          <Link
-            to="/recipes"
-            className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 active:opacity-80"
-          >
-            Back
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={loading || !item}
+              className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50 active:opacity-80"
+            >
+              Delete
+            </button>
+
+            <Link
+              to="/recipes"
+              className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-200 active:opacity-80"
+            >
+              Back
+            </Link>
+          </div>
         </div>
 
         {tags.length ? (
@@ -82,7 +120,9 @@ export default function RecipeDetail() {
       {item ? (
         <>
           <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-            <div className="text-sm font-semibold text-gray-900">Ingredients</div>
+            <div className="text-sm font-semibold text-gray-900">
+              Ingredients
+            </div>
             <ul className="mt-2 list-disc pl-5 text-sm text-gray-800 space-y-1">
               {(item.ingredients || [])
                 .filter((i) => (i?.name || "").trim())
