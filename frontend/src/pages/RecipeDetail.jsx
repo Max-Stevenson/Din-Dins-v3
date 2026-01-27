@@ -129,6 +129,17 @@ export default function RecipeDetail() {
 
       {item ? (
         <>
+          {item?.imageUrl ? (
+            <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+              <img
+                src={item.imageUrl}
+                alt={item.name}
+                className="h-48 w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : null}
+
           <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
             <div className="text-sm font-semibold text-gray-900">
               Ingredients

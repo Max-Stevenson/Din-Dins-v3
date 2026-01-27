@@ -4,6 +4,7 @@ const cors = require("cors");
 const recipesRoutes = require("./routes/recipesRoutes");
 const devUser = require("./middleware/devUser");
 const mealPlansRoutes = require("./routes/mealPlansRoutes");
+const uploadsRoutes = require("./routes/uploadsRoutes");
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use(devUser);
 // routes
 app.use("/api/v1/recipes", recipesRoutes);
 app.use("/api/v1/meal-plans", mealPlansRoutes);
+app.use("/api/v1/uploads", uploadsRoutes);
 
 
 // error handler

@@ -10,6 +10,8 @@ import MethodStep from "./steps/MethodStep";
 import PhotoStep from "./steps/PhotoStep";
 import ReviewStep from "./steps/ReviewStep";
 
+import { uploadRecipeImage } from "./utils/uploadRecipeImage";
+
 function normalizeForForm(initial) {
   if (!initial) return emptyRecipe;
 
@@ -21,18 +23,24 @@ function normalizeForForm(initial) {
     portions: Number(initial.portions ?? 1),
     cookTime: initial.cookTime ?? "",
     // In DB this is an array; in the form we store as comma-separated string
-    tags: Array.isArray(initial.tags) ? initial.tags.join(", ") : initial.tags ?? "",
-    ingredients: Array.isArray(initial.ingredients) && initial.ingredients.length
-      ? initial.ingredients.map((i) => ({
-          quantity: i?.quantity ?? "",
-          unit: i?.unit ?? "",
-          name: i?.name ?? "",
-        }))
-      : emptyRecipe.ingredients,
-    method: Array.isArray(initial.method) && initial.method.length
-      ? initial.method.map((s) => ({ text: s?.text ?? "" }))
-      : emptyRecipe.method,
-    image: null, // we’re not editing images yet (Cloudinary later)
+    tags: Array.isArray(initial.tags)
+      ? initial.tags.join(", ")
+      : (initial.tags ?? ""),
+    ingredients:
+      Array.isArray(initial.ingredients) && initial.ingredients.length
+        ? initial.ingredients.map((i) => ({
+            quantity: i?.quantity ?? "",
+            unit: i?.unit ?? "",
+            name: i?.name ?? "",
+          }))
+        : emptyRecipe.ingredients,
+    method:
+      Array.isArray(initial.method) && initial.method.length
+        ? initial.method.map((s) => ({ text: s?.text ?? "" }))
+        : emptyRecipe.method,
+    imageUrl: initial.imageUrl ?? "",
+    imagePublicId: initial.imagePublicId ?? "",
+    image: null,
   };
 }
 
@@ -43,7 +51,7 @@ export default function RecipeForm({
 }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [recipe, setRecipe] = useState(() =>
-    mode === "edit" ? normalizeForForm(initialRecipe) : emptyRecipe
+    mode === "edit" ? normalizeForForm(initialRecipe) : emptyRecipe,
   );
 
   // If initialRecipe arrives async (edit page fetch), update form state once.
@@ -56,9 +64,9 @@ export default function RecipeForm({
   }, [mode, initialRecipe]);
 
   const imageUrl = useMemo(() => {
-    if (!recipe.image) return "";
-    return URL.createObjectURL(recipe.image);
-  }, [recipe.image]);
+    if (recipe.image) return URL.createObjectURL(recipe.image); // local preview
+    return recipe.imageUrl || ""; // existing Cloudinary image (edit mode)
+  }, [recipe.image, recipe.imageUrl]);
 
   const handleIngredientChange = (index, field, value) => {
     const updatedIngredients = [...recipe.ingredients];
@@ -69,7 +77,10 @@ export default function RecipeForm({
   const addIngredient = () => {
     setRecipe({
       ...recipe,
-      ingredients: [...recipe.ingredients, { quantity: "", unit: "", name: "" }],
+      ingredients: [
+        ...recipe.ingredients,
+        { quantity: "", unit: "", name: "" },
+      ],
     });
   };
 
@@ -110,11 +121,11 @@ export default function RecipeForm({
     Number(recipe.portions) > 0;
 
   const ingredientsValid = recipe.ingredients.some(
-    (i) => (i?.name || "").trim().length > 0
+    (i) => (i?.name || "").trim().length > 0,
   );
 
   const methodValid = recipe.method.some(
-    (s) => (s?.text || "").trim().length > 0
+    (s) => (s?.text || "").trim().length > 0,
   );
 
   const canGoNext =
@@ -146,6 +157,15 @@ export default function RecipeForm({
       .map((t) => t.trim())
       .filter(Boolean);
 
+    let imageUrlToSave = recipe.imageUrl || "";
+    let imagePublicIdToSave = recipe.imagePublicId || "";
+
+    if (recipe.image) {
+      const uploaded = await uploadRecipeImage(recipe.image);
+      imageUrlToSave = uploaded.url;
+      imagePublicIdToSave = uploaded.publicId;
+    }
+
     const payload = {
       name: recipe.name,
       protein: recipe.protein,
@@ -154,7 +174,8 @@ export default function RecipeForm({
       tags: tagsArray,
       ingredients: recipe.ingredients,
       method: recipe.method,
-      imageUrl: "", // later (Cloudinary)
+      imageUrl: imageUrlToSave,
+      imagePublicId: imagePublicIdToSave,
     };
 
     try {
@@ -215,7 +236,11 @@ export default function RecipeForm({
       {/* Step pills */}
       <div className="flex flex-wrap gap-2">
         {steps.map((s, idx) => (
-          <StepPill key={s.key} active={idx === stepIndex} done={idx < stepIndex}>
+          <StepPill
+            key={s.key}
+            active={idx === stepIndex}
+            done={idx < stepIndex}
+          >
             {s.label}
           </StepPill>
         ))}
@@ -223,7 +248,11 @@ export default function RecipeForm({
 
       <form id="recipeWizard" onSubmit={onSubmit} className="space-y-4">
         {currentStep.key === "basics" && (
-          <BasicStep recipe={recipe} setRecipe={setRecipe} basicsValid={basicsValid} />
+          <BasicStep
+            recipe={recipe}
+            setRecipe={setRecipe}
+            basicsValid={basicsValid}
+          />
         )}
 
         {currentStep.key === "ingredients" && (
@@ -247,7 +276,11 @@ export default function RecipeForm({
         )}
 
         {currentStep.key === "photo" && (
-          <PhotoStep recipe={recipe} setRecipe={setRecipe} imageUrl={imageUrl} />
+          <PhotoStep
+            recipe={recipe}
+            setRecipe={setRecipe}
+            imageUrl={imageUrl}
+          />
         )}
 
         {currentStep.key === "review" && (

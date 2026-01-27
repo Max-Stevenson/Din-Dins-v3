@@ -6,14 +6,14 @@ const IngredientSchema = new mongoose.Schema(
     unit: { type: String, default: "" },
     name: { type: String, required: true, trim: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const MethodStepSchema = new mongoose.Schema(
   {
     text: { type: String, required: true, trim: true },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const RecipeSchema = new mongoose.Schema(
@@ -30,11 +30,12 @@ const RecipeSchema = new mongoose.Schema(
     ingredients: { type: [IngredientSchema], default: [] },
     method: { type: [MethodStepSchema], default: [] },
 
-    imageUrl: { type: String, default: "" }, // later: Cloudinary
+    imageUrl: { type: String, default: "" }, // Cloudinary
+    imagePublicId: { type: String, default: "" }, // Cloudinary handle
 
     lastPlannedAt: { type: Date, default: null },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 module.exports = mongoose.model("Recipe", RecipeSchema);

@@ -35,4 +35,6 @@ export const emptyRecipe = {
   ingredients: [{ quantity: "", unit: "", name: "" }],
   method: [{ text: "" }],
   image: null,
+  imageUrl: "",
+  imagePublicId: "",
 };

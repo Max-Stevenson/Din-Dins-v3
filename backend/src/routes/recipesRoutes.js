@@ -28,10 +28,13 @@ router.put("/:id", async (req, res) => {
       ingredients = [],
       method = [],
       imageUrl = "",
+      imagePublicId = "",
     } = req.body ?? {};
 
-    if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
-    if (!protein?.trim()) return res.status(400).json({ error: "Protein is required" });
+    if (!name?.trim())
+      return res.status(400).json({ error: "Name is required" });
+    if (!protein?.trim())
+      return res.status(400).json({ error: "Protein is required" });
     if (!Number.isFinite(portions) || portions < 1)
       return res.status(400).json({ error: "Portions must be >= 1" });
 
@@ -62,8 +65,9 @@ router.put("/:id", async (req, res) => {
         ingredients: cleanIngredients,
         method: cleanMethod,
         imageUrl: String(imageUrl).trim(),
+        imagePublicId: String(imagePublicId).trim(),
       },
-      { new: true }
+      { new: true },
     );
 
     if (!updated) return res.status(404).json({ error: "Not found" });
@@ -89,10 +93,13 @@ router.post("/", async (req, res) => {
       ingredients = [],
       method = [],
       imageUrl = "",
+      imagePublicId = "",
     } = req.body ?? {};
 
-    if (!name?.trim()) return res.status(400).json({ error: "Name is required" });
-    if (!protein?.trim()) return res.status(400).json({ error: "Protein is required" });
+    if (!name?.trim())
+      return res.status(400).json({ error: "Name is required" });
+    if (!protein?.trim())
+      return res.status(400).json({ error: "Protein is required" });
     if (!Number.isFinite(portions) || portions < 1)
       return res.status(400).json({ error: "Portions must be >= 1" });
 
@@ -122,6 +129,7 @@ router.post("/", async (req, res) => {
       ingredients: cleanIngredients,
       method: cleanMethod,
       imageUrl: String(imageUrl).trim(),
+      imagePublicId: String(imagePublicId).trim(),
     });
 
     res.status(201).json({ item: created });
