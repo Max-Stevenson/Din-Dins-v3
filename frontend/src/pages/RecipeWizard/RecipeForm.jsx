@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useApi } from "../../lib/useApi";
+
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
 import { emptyRecipe, steps } from "./constants";
@@ -49,6 +51,8 @@ export default function RecipeForm({
   initialRecipe = null,
   onSubmitRecipe = null, // optional override (used by EditRecipe wrapper)
 }) {
+  const { apiFetch } = useApi();
+
   const [stepIndex, setStepIndex] = useState(0);
   const [recipe, setRecipe] = useState(() =>
     mode === "edit" ? normalizeForForm(initialRecipe) : emptyRecipe,
@@ -161,7 +165,7 @@ export default function RecipeForm({
     let imagePublicIdToSave = recipe.imagePublicId || "";
 
     if (recipe.image) {
-      const uploaded = await uploadRecipeImage(recipe.image);
+      const uploaded = await uploadRecipeImage(apiFetch, recipe.image);
       imageUrlToSave = uploaded.url;
       imagePublicIdToSave = uploaded.publicId;
     }
@@ -186,9 +190,8 @@ export default function RecipeForm({
       }
 
       // Default create behavior
-      const res = await fetch("/api/v1/recipes", {
+      const res = await apiFetch("/api/v1/recipes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 

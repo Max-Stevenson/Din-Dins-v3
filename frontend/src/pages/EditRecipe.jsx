@@ -1,13 +1,24 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import RecipeWizard from "./RecipeWizard"; // adjust if your path differs
+import { useAuth0 } from "@auth0/auth0-react";
+import RecipeWizard from "./RecipeWizard";
 
 export default function EditRecipe() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const authEnabled = import.meta.env.VITE_AUTH_ENABLED === "true";
+  const auth0 = authEnabled ? useAuth0() : null; // ✅ safe because it won't run when disabled
+  const getAccessTokenSilently = auth0?.getAccessTokenSilently;
+
   const [initial, setInitial] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  async function withAuthHeaders(extra = {}) {
+    if (!authEnabled || !getAccessTokenSilently) return extra;
+    const token = await getAccessTokenSilently();
+    return { ...extra, Authorization: `Bearer ${token}` };
+  }
 
   useEffect(() => {
     let ignore = false;
@@ -15,7 +26,8 @@ export default function EditRecipe() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/v1/recipes/${id}`);
+        const headers = await withAuthHeaders();
+        const res = await fetch(`/api/v1/recipes/${id}`, { headers });
         if (!res.ok) throw new Error("Not found");
         const data = await res.json();
         if (!ignore) setInitial(data.item || null);
@@ -27,13 +39,17 @@ export default function EditRecipe() {
     }
 
     load();
-    return () => { ignore = true; };
-  }, [id]);
+    return () => {
+      ignore = true;
+    };
+  }, [id]); // intentionally NOT including auth deps to avoid rerun loops
 
   const onSave = async (recipePayload) => {
+    const headers = await withAuthHeaders({ "Content-Type": "application/json" });
+
     const res = await fetch(`/api/v1/recipes/${id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(recipePayload),
     });
 
@@ -46,7 +62,9 @@ export default function EditRecipe() {
   };
 
   if (loading) {
-    return <div className="mx-auto max-w-md text-sm text-gray-600">Loading…</div>;
+    return (
+      <div className="mx-auto max-w-md text-sm text-gray-600">Loading…</div>
+    );
   }
 
   if (!initial) {

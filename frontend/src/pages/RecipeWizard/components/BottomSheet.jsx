@@ -10,11 +10,9 @@ export default function BottomSheet({ open, title, children, onClose }) {
         aria-hidden="true"
       />
 
-      {/* Sheet wrapper — push it ABOVE the bottom nav */}
       <div
         className={[
           "absolute inset-x-0",
-          // Bottom nav is ~5.5rem tall (plus safe area). Adjust if needed.
           "bottom-20",
           "mx-auto w-full max-w-md px-3",
         ].join(" ")}
