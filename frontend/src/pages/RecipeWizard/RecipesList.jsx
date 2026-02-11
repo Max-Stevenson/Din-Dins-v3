@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useApi } from "../lib/useApi";
+import { useApi } from "../../lib/useApi";
 
 export default function RecipesList() {
   const [items, setItems] = useState([]);

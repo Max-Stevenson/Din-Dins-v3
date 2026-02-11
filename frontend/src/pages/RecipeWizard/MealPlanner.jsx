@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomSheet from "../RecipeWizard/components/BottomSheet";
 import { Search } from "lucide-react";
-import { useApi } from "../lib/useApi";
+import { useApi } from "../../lib/useApi";
 
 function todayISO() {
   const d = new Date();
