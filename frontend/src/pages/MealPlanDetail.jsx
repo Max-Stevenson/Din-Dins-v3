@@ -1,12 +1,10 @@
-// FILE 2: src/pages/MealPlanDetail.jsx
-// Note: This expects backend GET /api/v1/meal-plans/:id.
-// If you don't have that yet, I'll give you the backend snippet below.
-
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useApi } from "../lib/useApi";
 
 export default function MealPlanDetail() {
   const { id } = useParams();
+  const { apiFetch } = useApi();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -16,7 +14,7 @@ export default function MealPlanDetail() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/v1/meal-plans/${id}`);
+        const res = await apiFetch(`/api/v1/meal-plans/${id}`);
         if (!res.ok) throw new Error("Not found");
         const data = await res.json();
         if (!ignore) setItem(data.item || null);

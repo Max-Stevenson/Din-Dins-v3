@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useApi } from "../lib/useApi";
 
 function displayQty(qty, unit, name) {
   return [qty, unit, name].filter(Boolean).join(" ");
 }
 
 export default function RecipeDetail() {
+  const { apiFetch } = useApi();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -19,7 +21,7 @@ export default function RecipeDetail() {
     if (!ok) return;
 
     try {
-      const res = await fetch(`/api/v1/recipes/${item._id}`, {
+      const res = await apiFetch(`/api/v1/recipes/${item._id}`, {
         method: "DELETE",
       });
 
@@ -40,7 +42,7 @@ export default function RecipeDetail() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/v1/recipes/${id}`);
+        const res = await apiFetch(`/api/v1/recipes/${id}`);
         if (!res.ok) throw new Error("Not found");
         const data = await res.json();
         if (!ignore) setItem(data.item || null);

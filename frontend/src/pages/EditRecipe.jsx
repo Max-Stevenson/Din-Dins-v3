@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import { useApi } from "../lib/useApi";
 import { useAuth0 } from "@auth0/auth0-react";
 import RecipeWizard from "./RecipeWizard";
 
 export default function EditRecipe() {
+  const { apiFetch } = useApi();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -27,7 +29,7 @@ export default function EditRecipe() {
       setLoading(true);
       try {
         const headers = await withAuthHeaders();
-        const res = await fetch(`/api/v1/recipes/${id}`, { headers });
+        const res = await apiFetch(`/api/v1/recipes/${id}`);
         if (!res.ok) throw new Error("Not found");
         const data = await res.json();
         if (!ignore) setInitial(data.item || null);
@@ -45,11 +47,12 @@ export default function EditRecipe() {
   }, [id]); // intentionally NOT including auth deps to avoid rerun loops
 
   const onSave = async (recipePayload) => {
-    const headers = await withAuthHeaders({ "Content-Type": "application/json" });
+    const headers = await withAuthHeaders({
+      "Content-Type": "application/json",
+    });
 
-    const res = await fetch(`/api/v1/recipes/${id}`, {
+    const res = await apiFetch(`/api/v1/recipes/${id}`, {
       method: "PUT",
-      headers,
       body: JSON.stringify(recipePayload),
     });
 

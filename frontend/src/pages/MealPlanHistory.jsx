@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useApi } from "../lib/useApi";
 
 function formatDate(isoYYYYMMDD) {
-  // keep it simple and stable across locales
   return isoYYYYMMDD || "";
 }
 
 export default function MealPlanHistory() {
+  const { apiFetch } = useApi();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -16,7 +17,7 @@ export default function MealPlanHistory() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch("/api/v1/meal-plans");
+        const res = await apiFetch("/api/v1/meal-plans");
         const data = await res.json();
         if (!ignore) setItems(data.items || []);
       } catch {

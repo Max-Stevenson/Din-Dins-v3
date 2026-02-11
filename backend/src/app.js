@@ -39,11 +39,21 @@ app.use("/api/v1/recipes", recipesRoutes);
 app.use("/api/v1/meal-plans", mealPlansRoutes);
 app.use("/api/v1/uploads", uploadsRoutes);
 
-
 // error handler
-app.use((err, _req, res, next) => {
-  if (res.headerSent) return next(err);
-  res.status(err.code || 500).json({ error: err.message || "Unknown error" });
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  // Auth libs typically provide status/statusCode (number)
+  const status = Number.isInteger(err.status)
+    ? err.status
+    : Number.isInteger(err.statusCode)
+      ? err.statusCode
+      : 500;
+
+  res.status(status).json({
+    error: err.message || "An unknown error occurred",
+    code: err.code || undefined,
+  });
 });
 
 module.exports = app;

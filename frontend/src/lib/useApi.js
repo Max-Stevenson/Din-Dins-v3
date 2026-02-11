@@ -8,14 +8,19 @@ export function useApi() {
     const headers = new Headers(options.headers || {});
     const isFormData = options.body instanceof FormData;
 
-    // Attach token only when auth is enabled
     if (authEnabled) {
       if (!isAuthenticated) throw new Error("Not authenticated");
-      const token = await getAccessTokenSilently();
+
+      const token = await getAccessTokenSilently({
+        authorizationParams: {
+          audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+        },
+      });
+
+      // IMPORTANT: token must be raw "eyJ..." (no "Bearer " inside it)
       headers.set("Authorization", `Bearer ${token}`);
     }
 
-    // Only set JSON content-type when we're not sending FormData
     if (!headers.has("Content-Type") && options.body && !isFormData) {
       headers.set("Content-Type", "application/json");
     }

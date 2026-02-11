@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useApi } from "../lib/useApi";
 
 export default function RecipesList() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { apiFetch } = useApi();
 
   useEffect(() => {
     let ignore = false;
 
     async function load() {
       try {
-        const res = await fetch("/api/v1/recipes");
+        const res = await apiFetch("/api/v1/recipes");
         const data = await res.json();
         if (!ignore) setItems(data.items || []);
       } finally {
