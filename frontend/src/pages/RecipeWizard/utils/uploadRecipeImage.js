@@ -1,11 +1,5 @@
-export async function uploadRecipeImage(apiFetch, file) {
-  const form = new FormData();
-  form.append("file", file);
-
-  const res = await apiFetch("/api/v1/uploads/recipe-image", {
-    method: "POST",
-    body: form,
-  });
+export async function uploadRecipeImage(api, file) {
+  const res = await api.uploads.uploadRecipeImage(file);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

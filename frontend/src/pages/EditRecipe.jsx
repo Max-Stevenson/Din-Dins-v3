@@ -1,26 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { useApi } from "../lib/useApi";
-import { useAuth0 } from "@auth0/auth0-react";
+import { useApiClient } from "../api/client";
 import RecipeWizard from "./RecipeWizard";
 
 export default function EditRecipe() {
-  const { apiFetch } = useApi();
+  const api = useApiClient();
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const authEnabled = import.meta.env.VITE_AUTH_ENABLED === "true";
-  const auth0 = authEnabled ? useAuth0() : null; // ✅ safe because it won't run when disabled
-  const getAccessTokenSilently = auth0?.getAccessTokenSilently;
-
   const [initial, setInitial] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  async function withAuthHeaders(extra = {}) {
-    if (!authEnabled || !getAccessTokenSilently) return extra;
-    const token = await getAccessTokenSilently();
-    return { ...extra, Authorization: `Bearer ${token}` };
-  }
 
   useEffect(() => {
     let ignore = false;
@@ -28,8 +17,7 @@ export default function EditRecipe() {
     async function load() {
       setLoading(true);
       try {
-        const headers = await withAuthHeaders();
-        const res = await apiFetch(`/api/v1/recipes/${id}`);
+        const res = await api.recipes.getById(id);
         if (!res.ok) throw new Error("Not found");
         const data = await res.json();
         if (!ignore) setInitial(data.item || null);
@@ -44,17 +32,10 @@ export default function EditRecipe() {
     return () => {
       ignore = true;
     };
-  }, [id]); // intentionally NOT including auth deps to avoid rerun loops
+  }, [id]);
 
   const onSave = async (recipePayload) => {
-    const headers = await withAuthHeaders({
-      "Content-Type": "application/json",
-    });
-
-    const res = await apiFetch(`/api/v1/recipes/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(recipePayload),
-    });
+    const res = await api.recipes.update(id, recipePayload);
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -66,7 +47,7 @@ export default function EditRecipe() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-md text-sm text-gray-600">Loading…</div>
+      <div className="mx-auto max-w-md text-sm text-gray-600">Loading...</div>
     );
   }
 
@@ -77,7 +58,7 @@ export default function EditRecipe() {
           Recipe not found.
         </div>
         <Link to="/recipes" className="text-sm font-semibold text-blue-600">
-          ← Back to recipes
+          Back to recipes
         </Link>
       </div>
     );

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BottomSheet from "../RecipeWizard/components/BottomSheet";
 import { Search } from "lucide-react";
-import { useApi } from "../../lib/useApi";
+import { useApiClient } from "../../api/client";
 
 function todayISO() {
   const d = new Date();
@@ -13,7 +13,7 @@ function todayISO() {
 }
 
 export default function MealPlanner() {
-  const { apiFetch } = useApi();
+  const api = useApiClient();
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState(todayISO());
   const [days, setDays] = useState(7);
@@ -41,7 +41,7 @@ export default function MealPlanner() {
     async function loadRecipes() {
       setRecipesLoading(true);
       try {
-        const res = await apiFetch("/api/v1/recipes");
+        const res = await api.recipes.list();
         const data = await res.json();
         if (!ignore) setRecipes(data.items || []);
       } catch {
@@ -99,10 +99,12 @@ export default function MealPlanner() {
   const generate = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch("/api/v1/meal-plans/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ startDate, days, people, meatRatio, allowLeftovers }),
+      const res = await api.mealPlans.generate({
+        startDate,
+        days,
+        people,
+        meatRatio,
+        allowLeftovers,
       });
 
       if (!res.ok) {
@@ -124,11 +126,7 @@ export default function MealPlanner() {
 
     setLoading(true);
     try {
-      const res = await apiFetch("/api/v1/meal-plans", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(proposal),
-      });
+      const res = await api.mealPlans.create(proposal);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

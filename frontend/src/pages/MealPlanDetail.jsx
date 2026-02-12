@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useApi } from "../lib/useApi";
+import { useApiClient } from "../api/client";
 
 export default function MealPlanDetail() {
   const { id } = useParams();
-  const { apiFetch } = useApi();
+  const api = useApiClient();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -14,7 +14,7 @@ export default function MealPlanDetail() {
     async function load() {
       setLoading(true);
       try {
-        const res = await apiFetch(`/api/v1/meal-plans/${id}`);
+        const res = await api.mealPlans.getById(id);
         if (!res.ok) throw new Error("Not found");
         const data = await res.json();
         if (!ignore) setItem(data.item || null);
