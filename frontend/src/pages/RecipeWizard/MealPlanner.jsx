@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import BottomSheet from "../RecipeWizard/components/BottomSheet";
 import { Search } from "lucide-react";
 import { useApiClient } from "../../api/client";
+import { useToast } from "../../ui/toast";
 
 function todayISO() {
   const d = new Date();
@@ -14,6 +15,7 @@ function todayISO() {
 
 export default function MealPlanner() {
   const api = useApiClient();
+  const toast = useToast();
   const navigate = useNavigate();
   const [startDate, setStartDate] = useState(todayISO());
   const [days, setDays] = useState(7);
@@ -115,7 +117,7 @@ export default function MealPlanner() {
       const data = await res.json();
       setProposal(data.proposal);
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -136,7 +138,7 @@ export default function MealPlanner() {
       // ✅ tighter loop
       navigate("/meal-plans");
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }

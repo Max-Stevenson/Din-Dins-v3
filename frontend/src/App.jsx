@@ -11,6 +11,7 @@ import MealPlanHistory from "./pages/MealPlanHistory";
 import MealPlanDetail from "./pages/MealPlanDetail";
 import RecipeDetail from "./pages/RecipeDetail";
 import BottomNav from "./pages/RecipeWizard/components/BottomNav";
+import { ToastProvider } from "./ui/toast";
 
 function AppShell() {
   return (
@@ -41,7 +42,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthGate>
-        <AppShell />
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
       </AuthGate>
     </BrowserRouter>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useApiClient } from "../api/client";
+import { useToast } from "../ui/toast";
 
 function displayQty(qty, unit, name) {
   return [qty, unit, name].filter(Boolean).join(" ");
@@ -8,6 +9,7 @@ function displayQty(qty, unit, name) {
 
 export default function RecipeDetail() {
   const api = useApiClient();
+  const toast = useToast();
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -17,7 +19,10 @@ export default function RecipeDetail() {
   const onDelete = async () => {
     if (!item?._id) return;
 
-    const ok = window.confirm(`Delete "${item.name}"? This cannot be undone.`);
+    const ok = await toast.confirm(
+      `Delete "${item.name}"? This cannot be undone.`,
+      { confirmLabel: "Delete" },
+    );
     if (!ok) return;
 
     try {
@@ -30,7 +35,7 @@ export default function RecipeDetail() {
 
       navigate("/recipes");
     } catch (e) {
-      alert(e.message);
+      toast.error(e.message);
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useApiClient } from "../../api/client";
+import { useToast } from "../../ui/toast";
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
@@ -52,6 +53,7 @@ export default function RecipeForm({
   onSubmitRecipe = null, // optional override (used by EditRecipe wrapper)
 }) {
   const api = useApiClient();
+  const toast = useToast();
 
   const [stepIndex, setStepIndex] = useState(0);
   const [recipe, setRecipe] = useState(() =>
@@ -198,9 +200,9 @@ export default function RecipeForm({
       }
 
       reset();
-      alert("Saved ✅");
+      toast.success("Saved");
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     }
   };
 
