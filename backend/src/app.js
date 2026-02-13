@@ -12,6 +12,7 @@ app.use(cors());
 
 // replaces bodyParser.json(...)
 app.use(express.json({ limit: "2mb" }));
+app.get("/healthz", (req, res) => res.status(200).send("ok"));
 
 const authEnabled = process.env.AUTH_ENABLED === "true";
 if (!authEnabled) {
