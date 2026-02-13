@@ -2,7 +2,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 
 export function useApi() {
   const authEnabled = import.meta.env.VITE_AUTH_ENABLED === "true";
-  const apiBase = import.meta.env.VITE_API_BASE || "";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "";
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   async function apiFetch(path, options = {}) {
