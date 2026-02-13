@@ -2,6 +2,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 
 export function useApi() {
   const authEnabled = import.meta.env.VITE_AUTH_ENABLED === "true";
+  const apiBase = import.meta.env.VITE_API_BASE || "";
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
   async function apiFetch(path, options = {}) {
@@ -25,7 +26,13 @@ export function useApi() {
       headers.set("Content-Type", "application/json");
     }
 
-    return fetch(path, { ...options, headers });
+    const isAbsolute = /^https?:\/\//i.test(path);
+    let url = path;
+    if (!isAbsolute && apiBase) {
+      url = `${apiBase.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+    }
+
+    return fetch(url, { ...options, headers });
   }
 
   return { apiFetch };
