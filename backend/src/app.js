@@ -3,6 +3,7 @@ const cors = require("cors");
 const { auth } = require("express-oauth2-jwt-bearer");
 const recipesRoutes = require("./routes/recipesRoutes");
 const devUser = require("./middleware/devUser");
+const requireAllowedUser = require("./middleware/allowedUser");
 const mealPlansRoutes = require("./routes/mealPlansRoutes");
 const uploadsRoutes = require("./routes/uploadsRoutes");
 

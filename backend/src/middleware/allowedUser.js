@@ -19,3 +19,6 @@ function requireAllowedUser(req, res, next) {
 
   return next();
 }
+
+
+module.exports = requireAllowedUser;

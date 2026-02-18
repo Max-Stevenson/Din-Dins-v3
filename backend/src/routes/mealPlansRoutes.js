@@ -48,6 +48,32 @@ function pickWeighted(recipes) {
   return scored[scored.length - 1]?.r;
 }
 
+function countSchedulableLeftoverMeals(leftoverQueue, people) {
+  return leftoverQueue.reduce((sum, entry) => {
+    return sum + Math.floor(entry.servingsRemaining / people);
+  }, 0);
+}
+
+function consumeNextLeftover(leftoverQueue, people) {
+  while (leftoverQueue.length > 0) {
+    const current = leftoverQueue[0];
+
+    if (current.servingsRemaining < people) {
+      leftoverQueue.shift();
+      continue;
+    }
+
+    current.servingsRemaining -= people;
+    if (current.servingsRemaining < people) {
+      leftoverQueue.shift();
+    }
+
+    return current.recipeId;
+  }
+
+  return null;
+}
+
 // POST /api/v1/meal-plans/generate
 router.post("/generate", async (req, res) => {
   const {
@@ -86,40 +112,46 @@ router.post("/generate", async (req, res) => {
   const meatRecipes = allRecipes.filter((r) => isMeatProtein(r.protein));
   const vegRecipes = allRecipes.filter((r) => !isMeatProtein(r.protein));
 
-  // leftover “bank”: recipeId -> portions remaining
-  const leftovers = new Map();
+  // FIFO leftover queue so leftovers keep a stable, predictable order.
+  const leftoverQueue = [];
 
   const dinners = [];
   const start = new Date(`${startDate}T12:00:00`); // noon avoids DST weirdness
   let lastCookedId = null;
+  let consecutiveCookDays = 0;
+  let drainingLeftovers = false;
 
   for (let i = 0; i < days; i++) {
     const dateStr = toISODate(addDays(start, i));
 
-    // If leftovers allowed and any leftover portions exist, use them sometimes.
-    // Simple heuristic: 35% chance to use leftovers if available.
-    if (allowLeftovers && leftovers.size > 0 && Math.random() < 0.35) {
-      let best = null;
+    const daysRemainingIncludingToday = days - i;
+    const pendingLeftoverMeals = countSchedulableLeftoverMeals(
+      leftoverQueue,
+      people
+    );
+    const canUseLeftovers = allowLeftovers && pendingLeftoverMeals > 0;
+    const shouldFlushByPlanEnd =
+      pendingLeftoverMeals >= daysRemainingIncludingToday;
+    const shouldStartStaggeredLeftovers = consecutiveCookDays >= 2;
+    const shouldUseLeftovers =
+      canUseLeftovers &&
+      (drainingLeftovers || shouldFlushByPlanEnd || shouldStartStaggeredLeftovers);
 
-      for (const [recipeId, portions] of leftovers.entries()) {
-        if (!recipeId) continue;
-        if (!best || portions > best.portions) best = { recipeId, portions };
-      }
-
-      // Only schedule leftovers if we have a valid recipe id
-      if (best && best.recipeId) {
-        const remaining = best.portions - people;
-
-        if (remaining > 0) leftovers.set(best.recipeId, remaining);
-        else leftovers.delete(best.recipeId);
-
+    if (shouldUseLeftovers) {
+      const recipeId = consumeNextLeftover(leftoverQueue, people);
+      if (recipeId) {
         dinners.push({
           date: dateStr,
           type: "leftovers",
-          leftoverOfRecipeId: best.recipeId,
+          leftoverOfRecipeId: recipeId,
         });
+        consecutiveCookDays = 0;
+        drainingLeftovers =
+          countSchedulableLeftoverMeals(leftoverQueue, people) > 0;
         continue;
       }
+
+      drainingLeftovers = false;
     }
 
     // decide meat vs veg target
@@ -145,15 +177,18 @@ router.post("/generate", async (req, res) => {
 
     dinners.push({ date: dateStr, type: "cook", recipeId: chosen._id });
     lastCookedId = chosen._id;
+    consecutiveCookDays += 1;
 
-    // add leftovers if recipe portions exceed people
+    // Add leftovers only if there are enough servings for a full leftover dinner.
     const portions = Number.isFinite(Number(chosen.portions))
       ? Number(chosen.portions)
       : 1;
     const producedLeftovers = Math.max(0, portions - people);
-    if (allowLeftovers && producedLeftovers > 0) {
-      const key = String(chosen._id);
-      leftovers.set(key, (leftovers.get(key) || 0) + producedLeftovers);
+    if (allowLeftovers && producedLeftovers >= people) {
+      leftoverQueue.push({
+        recipeId: String(chosen._id),
+        servingsRemaining: producedLeftovers,
+      });
     }
   }
 
