@@ -8,7 +8,21 @@ const uploadsRoutes = require("./routes/uploadsRoutes");
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://din-dins-v3-oi7i.vercel.app",
+];
+
+app.use(cors({
+  origin(origin, cb) {
+    // allow non-browser tools like curl/Postman (no Origin header)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
+  },
+  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+}));
 
 // replaces bodyParser.json(...)
 app.use(express.json({ limit: "2mb" }));
@@ -29,6 +43,7 @@ if (!authEnabled) {
     req.userId = req.auth?.payload?.sub;
     next();
   });
+  app.use(requireAllowedUser);
 }
 
 // routes
