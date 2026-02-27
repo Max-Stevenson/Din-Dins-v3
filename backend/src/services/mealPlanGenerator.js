@@ -125,8 +125,23 @@ function generateMealPlan(input) {
   let ratioWarningNeeded = false;
   let wantMeat = false; // track for warning message
 
-  // Calculate target meat/veg split for the full plan
-  const targetMeatCount = Math.round(days * meatVegRatio);
+  // Determine how many fresh-cook days we will have based on the
+  // leftover policy. The generator inserts a leftover after every two
+  // fresh-cook days (i.e. a repeating pattern F, F, L). Over `n` total
+  // days this results in roughly two-thirds of the slots being fresh.
+  // We can compute it directly rather than solving an inequality:
+  //   freshDays = 2*floor(n/3) + min(2, n%3)
+  // which simplifies to ceil(2*n/3).
+  //
+  // This target is only used for ratio calculations; actual generation
+  // still follows the insertion rules above but will naturally produce
+  // exactly this number of fresh entries.
+  function computeFreshDays(totalDays) {
+    return Math.ceil((2 * totalDays) / 3);
+  }
+
+  const freshDaysTarget = allowLeftovers ? computeFreshDays(days) : days;
+  const targetMeatCount = Math.round(freshDaysTarget * meatVegRatio);
 
   // Generate entries day by day (fresh and leftover combined)
   const startDateObj = new Date(`${startDate}T12:00:00`);
@@ -165,8 +180,7 @@ function generateMealPlan(input) {
     }
 
     // Place a fresh-cook entry
-    // Determine if we want meat or veg today
-    // Pick whichever category we're under-represented in
+    // Determine if we want meat or veg today (only count fresh days)
     wantMeat = meatCount < targetMeatCount;
 
     // Pick appropriate pool
@@ -221,7 +235,7 @@ function generateMealPlan(input) {
     lastChosenId = recipeId;
     usedRecipeIds.add(recipeId);
 
-    // Track meat/veg counts
+    // Track meat/veg counts for fresh entries only
     if (isVegetarian(chosen)) {
       vegCount += 1;
     } else {
@@ -248,19 +262,28 @@ function generateMealPlan(input) {
     warnings.push(`Not enough ${needed} recipes to satisfy requested ratio exactly.`);
   }
 
-  // Warn if we have insufficient recipes in one category to avoid repetition
-  // while satisfying the ratio
+  // Additional warnings based on fresh-day targets
   if (repetitionOccurred) {
-    if (meatRecipes.length === 1 && targetMeatCount > meatRecipes.length) {
+    if (
+      meatRecipes.length === 1 &&
+      targetMeatCount > meatRecipes.length
+    ) {
       warnings.push('Not enough meat recipes to satisfy requested ratio exactly.');
-    } else if (vegRecipes.length === 1 && targetMeatCount < days && (days - targetMeatCount) > vegRecipes.length) {
+    } else if (
+      vegRecipes.length === 1 &&
+      targetMeatCount < freshDaysTarget &&
+      freshDaysTarget - targetMeatCount > vegRecipes.length
+    ) {
       warnings.push('Not enough vegetarian recipes to satisfy requested ratio exactly.');
     }
   }
 
   // Warn if repetition occurred
   const totalFreshPlanned = meatCount + vegCount;
-  if (repetitionOccurred && usedRecipeIds.size < totalFreshPlanned) {
+  if (
+    repetitionOccurred &&
+    usedRecipeIds.size < totalFreshPlanned
+  ) {
     warnings.push('Plan contains repeated recipes due to limited available recipes.');
   }
 

@@ -609,6 +609,37 @@ describe('mealPlanGenerator', () => {
       expect(freshCount + leftoverCount).toBe(6);
     });
 
+    it('fresh-day meat/veg ratio is based only on fresh entries with leftovers enabled', () => {
+      // compute fresh days for 8 total days -> 5 fresh days
+      const recipes = [
+        makeRecipe('m1', 'Meat1', 'Chicken'),
+        makeRecipe('m2', 'Meat2', 'Beef'),
+        makeRecipe('m3', 'Meat3', 'Pork'),
+        makeRecipe('v1', 'Veg1', 'Vegetarian'),
+        makeRecipe('v2', 'Veg2', 'Vegetarian'),
+        makeRecipe('v3', 'Veg3', 'Vegetarian'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 8,
+        peopleCount: 1,
+        meatVegRatio: 0.5,
+        allowLeftovers: true,
+      });
+
+      const freshEntries = result.entries.filter((e) => e.type === 'fresh');
+      const meatCount = freshEntries.filter((e) => e.protein !== 'Vegetarian')
+        .length;
+      const vegCount = freshEntries.length - meatCount;
+
+      // with 8 total days and leftovers enabled, the policy yields 6 fresh
+      // days (two-thirds of the total, rounded up).
+      expect(freshEntries.length).toBe(6);
+      expect(Math.abs(meatCount - vegCount)).toBeLessThanOrEqual(1);
+    });
+
     it('leftover entries always immediately follow their source fresh day', () => {
       const recipes = [
         makeRecipe('r1', 'Recipe1', 'Chicken'),
