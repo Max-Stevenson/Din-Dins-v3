@@ -22,6 +22,7 @@ export default function MealPlanner() {
   const [people, setPeople] = useState(2);
   const [meatRatio, setMeatRatio] = useState(0.5);
   const [allowLeftovers, setAllowLeftovers] = useState(true);
+  const [useV2, setUseV2] = useState(false); // toggle to hit the new generator route
 
   const [proposal, setProposal] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -101,7 +102,8 @@ export default function MealPlanner() {
   const generate = async () => {
     setLoading(true);
     try {
-      const res = await api.mealPlans.generate({
+      const endpoint = useV2 ? api.mealPlans.generateV2 : api.mealPlans.generate;
+      const res = await endpoint({
         startDate,
         days,
         people,
@@ -115,7 +117,30 @@ export default function MealPlanner() {
       }
 
       const data = await res.json();
-      setProposal(data.proposal);
+      if (useV2) {
+        // convert v2 plan shape into legacy proposal shape for the UI
+        const plan = data.plan || {};
+        const dinners = (plan.entries || []).map((e) => {
+          if (e.type === "fresh") {
+            return {
+              date: e.date,
+              type: "cook",
+              recipeId: e.recipeId,
+              title: e.title,
+            };
+          }
+          // leftover entry -- preserve recipeId as leftoverOfRecipeId
+          return {
+            date: e.date,
+            type: "leftovers",
+            leftoverOfRecipeId: e.recipeId,
+            title: e.title,
+          };
+        });
+        setProposal({ startDate, days, people, meatRatio, allowLeftovers, dinners, metadata: data.metadata });
+      } else {
+        setProposal(data.proposal);
+      }
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -207,6 +232,15 @@ export default function MealPlanner() {
           Allow leftovers
         </label>
 
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={useV2}
+            onChange={(e) => setUseV2(e.target.checked)}
+          />
+          Use new generator (v2)
+        </label>
+
         <button
           type="button"
           onClick={generate}
@@ -253,6 +287,18 @@ export default function MealPlanner() {
           <div className="text-xs text-gray-500">
             Swapping currently replaces that day with a “cook” meal (we’ll add leftovers-aware swaps later).
           </div>
+          {proposal.metadata && (
+            <div className="text-xs text-gray-500 mt-2">
+              Fresh: {proposal.metadata.freshCount}, Leftovers: {proposal.metadata.leftoverCount}
+              {proposal.metadata.warnings && proposal.metadata.warnings.length > 0 && (
+                <div className="mt-1">
+                  {proposal.metadata.warnings.map((w, i) => (
+                    <div key={i}>{w}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
 

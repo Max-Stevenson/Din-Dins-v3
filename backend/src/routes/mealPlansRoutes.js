@@ -1,6 +1,7 @@
 const express = require("express");
 const MealPlan = require("../models/MealPlan");
 const Recipe = require("../models/Recipe");
+const generateMealPlan = require("../services/mealPlanGenerator");
 
 const router = express.Router();
 
@@ -212,6 +213,46 @@ router.post("/generate", async (req, res) => {
       allowLeftovers,
       dinners: dinnersWithTitles,
     },
+  });
+});
+
+// TEMPORARY: new generator route for testing the pure v2 algorithm
+// mirrors the frontend parameters and returns raw entries plus metadata.
+router.post("/generate-v2", async (req, res) => {
+  const {
+    startDate,
+    days = 7,
+    people = 2,
+    meatRatio = 0.5,
+    allowLeftovers = true,
+  } = req.body ?? {};
+
+  if (!startDate)
+    return res
+      .status(400)
+      .json({ error: "startDate is required (YYYY-MM-DD)" });
+  if (!Number.isFinite(days) || days < 1 || days > 31)
+    return res.status(400).json({ error: "days must be 1..31" });
+  if (!Number.isFinite(people) || people < 1 || people > 20)
+    return res.status(400).json({ error: "people must be 1..20" });
+
+const allRecipes = await Recipe.find({ userId: req.userId }).limit(1000).lean();
+
+  const plan = generateMealPlan({
+    recipes: allRecipes,
+    startDate,
+    days,
+    peopleCount: people,
+    meatVegRatio: meatRatio,
+    allowLeftovers,
+  });
+
+  const freshCount = plan.entries.filter((e) => e.type === "fresh").length;
+  const leftoverCount = plan.entries.filter((e) => e.type === "leftover").length;
+
+  res.json({
+    plan,
+    metadata: { freshCount, leftoverCount, warnings: plan.warnings },
   });
 });
 
