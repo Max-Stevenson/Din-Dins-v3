@@ -65,14 +65,14 @@ function compareRecipes(a, b) {
 }
 
 /**
- * Generate a fresh-day-only meal plan.
+ * Generate a meal plan.
  * @param {Object} input
  * @param {Array} input.recipes - array of recipe objects
  * @param {string} input.startDate - YYYY-MM-DD format, today or future
  * @param {number} input.days - 1-14
  * @param {number} input.peopleCount - 1-10
  * @param {number} input.meatVegRatio - 0-1
- * @param {boolean} input.allowLeftovers - ignored in MVP, always false
+ * @param {boolean} input.allowLeftovers - whether to insert leftover entries every 2nd fresh day
  * @returns {Object} { entries, warnings }
  */
 function generateMealPlan(input) {
@@ -128,14 +128,43 @@ function generateMealPlan(input) {
   // Calculate target meat/veg split for the full plan
   const targetMeatCount = Math.round(days * meatVegRatio);
 
-  // Generate fresh entries day by day
+  // Generate entries day by day (fresh and leftover combined)
   const startDateObj = new Date(`${startDate}T12:00:00`);
+  let freshCookCount = 0;
+  let lastWasLeftover = false;
 
-  for (let i = 0; i < days; i++) {
+  for (let dayIndex = 0; dayIndex < days; ) {
     const currentDate = new Date(startDateObj);
-    currentDate.setDate(currentDate.getDate() + i);
+    currentDate.setDate(currentDate.getDate() + dayIndex);
     const dateStr = toISODate(currentDate);
 
+    // Check if we should insert a leftover entry
+    // Policy: every second fresh-cook day (2nd, 4th, 6th...) gets a leftover
+    if (
+      allowLeftovers &&
+      freshCookCount > 0 &&
+      freshCookCount % 2 === 0 &&
+      !lastWasLeftover &&
+      dayIndex < days
+    ) {
+      const lastEntry = entries[entries.length - 1];
+      if (lastEntry && lastEntry.type === 'fresh') {
+        // Create a leftover entry
+        entries.push({
+          date: dateStr,
+          type: 'leftover',
+          recipeId: lastEntry.recipeId,
+          leftoverOfRecipeId: lastEntry.recipeId,
+          title: `Leftovers: ${lastEntry.title}`,
+          protein: lastEntry.protein,
+        });
+        dayIndex++;
+        lastWasLeftover = true;
+        continue;
+      }
+    }
+
+    // Place a fresh-cook entry
     // Determine if we want meat or veg today
     // Pick whichever category we're under-represented in
     wantMeat = meatCount < targetMeatCount;
@@ -207,6 +236,10 @@ function generateMealPlan(input) {
       title: chosen.name || '',
       protein: chosen.protein,
     });
+
+    freshCookCount++;
+    dayIndex++;
+    lastWasLeftover = false;
   }
 
   // Warn if ratio couldn't be met

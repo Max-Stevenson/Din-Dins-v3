@@ -559,4 +559,248 @@ describe('mealPlanGenerator', () => {
       expect(result1.warnings).toEqual(result2.warnings);
     });
   });
+
+  // ===== LEFTOVER TESTS =====
+
+  describe('generation: leftovers', () => {
+    it('when leftovers are disabled, all entries remain fresh', () => {
+      const recipes = [
+        makeRecipe('m1', 'Meat1', 'Chicken'),
+        makeRecipe('m2', 'Meat2', 'Beef'),
+        makeRecipe('v1', 'Veg1', 'Vegetarian'),
+        makeRecipe('v2', 'Veg2', 'Vegetarian'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 6,
+        peopleCount: 1,
+        meatVegRatio: 0.5,
+        allowLeftovers: false,
+      });
+
+      expect(result.entries).toHaveLength(6);
+      expect(result.entries.every((e) => e.type === 'fresh')).toBe(true);
+    });
+
+    it('when leftovers are enabled, some leftover entries are created', () => {
+      const recipes = [
+        makeRecipe('m1', 'Meat1', 'Chicken'),
+        makeRecipe('m2', 'Meat2', 'Beef'),
+        makeRecipe('v1', 'Veg1', 'Vegetarian'),
+        makeRecipe('v2', 'Veg2', 'Vegetarian'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 6,
+        peopleCount: 1,
+        meatVegRatio: 0.5,
+        allowLeftovers: true,
+      });
+
+      expect(result.entries).toHaveLength(6); // total stays same
+      const leftoverCount = result.entries.filter((e) => e.type === 'leftover')
+        .length;
+      expect(leftoverCount).toBeGreaterThan(0);
+      const freshCount = result.entries.filter((e) => e.type === 'fresh').length;
+      expect(freshCount + leftoverCount).toBe(6);
+    });
+
+    it('leftover entries always immediately follow their source fresh day', () => {
+      const recipes = [
+        makeRecipe('r1', 'Recipe1', 'Chicken'),
+        makeRecipe('r2', 'Recipe2', 'Beef'),
+        makeRecipe('r3', 'Recipe3', 'Chicken'),
+        makeRecipe('r4', 'Recipe4', 'Beef'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 6,
+        peopleCount: 1,
+        meatVegRatio: 1,
+        allowLeftovers: true,
+      });
+
+      for (let i = 0; i < result.entries.length - 1; i++) {
+        if (result.entries[i + 1].type === 'leftover') {
+          expect(result.entries[i].type).toBe('fresh');
+          expect(result.entries[i + 1].leftoverOfRecipeId).toBe(
+            result.entries[i].recipeId
+          );
+        }
+      }
+    });
+
+    it('leftover entries preserve the same recipeId and protein as the source fresh day', () => {
+      const recipes = [
+        makeRecipe('r1', 'Chicken Curry', 'Chicken'),
+        makeRecipe('r2', 'Beef Stew', 'Beef'),
+        makeRecipe('r3', 'Pork Roast', 'Pork'),
+        makeRecipe('r4', 'Turkey Breast', 'Turkey'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 8,
+        peopleCount: 1,
+        meatVegRatio: 1,
+        allowLeftovers: true,
+      });
+
+      result.entries.forEach((entry) => {
+        if (entry.type === 'leftover') {
+          const sourceEntry = result.entries.find(
+            (e) =>
+              e.type === 'fresh' &&
+              e.recipeId === entry.leftoverOfRecipeId
+          );
+          expect(sourceEntry).toBeDefined();
+          expect(entry.recipeId).toBe(sourceEntry.recipeId);
+          expect(entry.protein).toBe(sourceEntry.protein);
+          expect(entry.title).toContain('Leftovers:');
+          expect(entry.title).toContain(sourceEntry.title);
+        }
+      });
+    });
+
+    it('leftover entries do not exceed requested total day count', () => {
+      const recipes = [
+        makeRecipe('r1', 'Recipe1', 'Chicken'),
+        makeRecipe('r2', 'Recipe2', 'Beef'),
+        makeRecipe('r3', 'Recipe3', 'Chicken'),
+        makeRecipe('r4', 'Recipe4', 'Beef'),
+        makeRecipe('r5', 'Recipe5', 'Chicken'),
+        makeRecipe('r6', 'Recipe6', 'Beef'),
+      ];
+
+      for (const days of [3, 5, 7, 10, 14]) {
+        const result = generateMealPlan({
+          recipes,
+          startDate: '3000-01-01',
+          days,
+          peopleCount: 1,
+          meatVegRatio: 1,
+          allowLeftovers: true,
+        });
+
+        expect(result.entries).toHaveLength(days);
+      }
+    });
+
+    it('no leftover-of-leftover chains are created', () => {
+      const recipes = [
+        makeRecipe('r1', 'Recipe1', 'Chicken'),
+        makeRecipe('r2', 'Recipe2', 'Beef'),
+        makeRecipe('r3', 'Recipe3', 'Chicken'),
+        makeRecipe('r4', 'Recipe4', 'Beef'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 6,
+        peopleCount: 1,
+        meatVegRatio: 1,
+        allowLeftovers: true,
+      });
+
+      result.entries.forEach((entry) => {
+        if (entry.type === 'leftover') {
+          // leftoverOfRecipeId should reference a fresh day, not another leftover
+          const sourceEntry = result.entries.find(
+            (e) => e.type === 'fresh' && e.recipeId === entry.leftoverOfRecipeId
+          );
+          expect(sourceEntry).toBeDefined(
+            `Leftover ${entry.recipeId} should reference a fresh entry`
+          );
+        }
+      });
+    });
+
+    it('generation remains deterministic with leftovers enabled', () => {
+      const recipes = [
+        makeRecipe('m1', 'Meat1', 'Chicken', '2026-01-01'),
+        makeRecipe('m2', 'Meat2', 'Beef', '2026-02-01'),
+        makeRecipe('v1', 'Veg1', 'Vegetarian', null),
+        makeRecipe('v2', 'Veg2', 'Vegetarian', '2026-01-15'),
+      ];
+
+      const input = {
+        recipes,
+        startDate: '3000-01-01',
+        days: 8,
+        peopleCount: 2,
+        meatVegRatio: 0.5,
+        allowLeftovers: true,
+      };
+
+      const result1 = generateMealPlan(input);
+      const result2 = generateMealPlan(input);
+
+      expect(result1.entries).toEqual(result2.entries);
+      expect(result1.warnings).toEqual(result2.warnings);
+    });
+
+    it('leftover policy: every second fresh day creates a leftover', () => {
+      const recipes = [
+        makeRecipe('r1', 'Recipe1', 'Chicken'),
+        makeRecipe('r2', 'Recipe2', 'Beef'),
+        makeRecipe('r3', 'Recipe3', 'Pork'),
+        makeRecipe('r4', 'Recipe4', 'Chicken'),
+        makeRecipe('r5', 'Recipe5', 'Beef'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 8,
+        peopleCount: 1,
+        meatVegRatio: 1,
+        allowLeftovers: true,
+      });
+
+      // Count fresh entries
+      const freshIndices = result.entries
+        .map((e, i) => (e.type === 'fresh' ? i : -1))
+        .filter((i) => i >= 0);
+
+      // Every second fresh should have a leftover immediately after
+      for (let freshIdx = 1; freshIdx < freshIndices.length; freshIdx += 2) {
+        const indexInEntries = freshIndices[freshIdx];
+        if (indexInEntries < result.entries.length - 1) {
+          // Check if next entry is a leftover
+          expect(result.entries[indexInEntries + 1].type).toBe('leftover');
+        }
+      }
+    });
+
+    it('leftover title includes "Leftovers: " prefix', () => {
+      const recipes = [
+        makeRecipe('r1', 'Chicken Curry', 'Chicken'),
+        makeRecipe('r2', 'Beef Stew', 'Beef'),
+        makeRecipe('r3', 'Pork Roast', 'Pork'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 6,
+        peopleCount: 1,
+        meatVegRatio: 1,
+        allowLeftovers: true,
+      });
+
+      result.entries.forEach((entry) => {
+        if (entry.type === 'leftover') {
+          expect(entry.title).toMatch(/^Leftovers: /);
+        }
+      });
+    });
+  });
 });
