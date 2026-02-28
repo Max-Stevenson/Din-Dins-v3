@@ -610,7 +610,7 @@ describe('mealPlanGenerator', () => {
     });
 
     it('fresh-day meat/veg ratio is based only on fresh entries with leftovers enabled', () => {
-      // compute fresh days for 8 total days -> 5 fresh days
+      // compute fresh days for 8 total days -> 4 fresh days (alternating pattern)
       const recipes = [
         makeRecipe('m1', 'Meat1', 'Chicken'),
         makeRecipe('m2', 'Meat2', 'Beef'),
@@ -634,10 +634,11 @@ describe('mealPlanGenerator', () => {
         .length;
       const vegCount = freshEntries.length - meatCount;
 
-      // with 8 total days and leftovers enabled, the policy yields 6 fresh
-      // days (two-thirds of the total, rounded up).
-      expect(freshEntries.length).toBe(6);
-      expect(Math.abs(meatCount - vegCount)).toBeLessThanOrEqual(1);
+      // with 8 total days and leftovers enabled, the pattern is alternating F, L, F, L, ...
+      // which yields 4 fresh and 4 leftover days. With 0.5 ratio, 2 meat and 2 veg.
+      expect(freshEntries.length).toBe(4);
+      expect(meatCount).toBe(2);
+      expect(vegCount).toBe(2);
     });
 
     it('leftover entries always immediately follow their source fresh day', () => {
@@ -778,7 +779,7 @@ describe('mealPlanGenerator', () => {
       expect(result1.warnings).toEqual(result2.warnings);
     });
 
-    it('leftover policy: every second fresh day creates a leftover', () => {
+    it('leftover policy: alternating fresh and leftover entries fill all days', () => {
       const recipes = [
         makeRecipe('r1', 'Recipe1', 'Chicken'),
         makeRecipe('r2', 'Recipe2', 'Beef'),
@@ -796,19 +797,22 @@ describe('mealPlanGenerator', () => {
         allowLeftovers: true,
       });
 
-      // Count fresh entries
-      const freshIndices = result.entries
-        .map((e, i) => (e.type === 'fresh' ? i : -1))
-        .filter((i) => i >= 0);
-
-      // Every second fresh should have a leftover immediately after
-      for (let freshIdx = 1; freshIdx < freshIndices.length; freshIdx += 2) {
-        const indexInEntries = freshIndices[freshIdx];
-        if (indexInEntries < result.entries.length - 1) {
-          // Check if next entry is a leftover
-          expect(result.entries[indexInEntries + 1].type).toBe('leftover');
+      // Pattern should be: F (0), L (1), F (2), L (3), F (4), L (5), F (6), L (7)
+      // Entries at even indices are fresh, odd indices are leftover
+      for (let i = 0; i < result.entries.length; i++) {
+        const entry = result.entries[i];
+        if (i % 2 === 0) {
+          expect(entry.type).toBe('fresh');
+        } else {
+          expect(entry.type).toBe('leftover');
         }
       }
+
+      // Verify counts: 8 days -> 4 fresh, 4 leftover
+      const freshCount = result.entries.filter((e) => e.type === 'fresh').length;
+      const leftoverCount = result.entries.filter((e) => e.type === 'leftover').length;
+      expect(freshCount).toBe(4);
+      expect(leftoverCount).toBe(4);
     });
 
     it('leftover title includes "Leftovers: " prefix', () => {
@@ -832,6 +836,70 @@ describe('mealPlanGenerator', () => {
           expect(entry.title).toMatch(/^Leftovers: /);
         }
       });
+    });
+
+    it('4 days with leftovers enabled yields exactly 2 fresh and 2 leftover', () => {
+      const recipes = [
+        makeRecipe('r1', 'Recipe1', 'Chicken'),
+        makeRecipe('r2', 'Recipe2', 'Beef'),
+        makeRecipe('r3', 'Recipe3', 'Pork'),
+        makeRecipe('r4', 'Recipe4', 'Chicken'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 4,
+        peopleCount: 1,
+        meatVegRatio: 0.5,
+        allowLeftovers: true,
+      });
+
+      const freshEntries = result.entries.filter((e) => e.type === 'fresh');
+      const leftoverEntries = result.entries.filter((e) => e.type === 'leftover');
+
+      expect(freshEntries).toHaveLength(2);
+      expect(leftoverEntries).toHaveLength(2);
+      expect(result.entries).toHaveLength(4);
+
+      // Pattern should be: F, L, F, L
+      expect(result.entries[0].type).toBe('fresh');
+      expect(result.entries[1].type).toBe('leftover');
+      expect(result.entries[2].type).toBe('fresh');
+      expect(result.entries[3].type).toBe('leftover');
+    });
+
+    it('5 days with leftovers enabled yields exactly 3 fresh and 2 leftover', () => {
+      const recipes = [
+        makeRecipe('r1', 'Recipe1', 'Chicken'),
+        makeRecipe('r2', 'Recipe2', 'Beef'),
+        makeRecipe('r3', 'Recipe3', 'Pork'),
+        makeRecipe('r4', 'Recipe4', 'Chicken'),
+        makeRecipe('r5', 'Recipe5', 'Beef'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 5,
+        peopleCount: 1,
+        meatVegRatio: 0.5,
+        allowLeftovers: true,
+      });
+
+      const freshEntries = result.entries.filter((e) => e.type === 'fresh');
+      const leftoverEntries = result.entries.filter((e) => e.type === 'leftover');
+
+      expect(freshEntries).toHaveLength(3);
+      expect(leftoverEntries).toHaveLength(2);
+      expect(result.entries).toHaveLength(5);
+
+      // Pattern should be: F, L, F, L, F
+      expect(result.entries[0].type).toBe('fresh');
+      expect(result.entries[1].type).toBe('leftover');
+      expect(result.entries[2].type).toBe('fresh');
+      expect(result.entries[3].type).toBe('leftover');
+      expect(result.entries[4].type).toBe('fresh');
     });
   });
 });

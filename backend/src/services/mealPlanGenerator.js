@@ -72,7 +72,7 @@ function compareRecipes(a, b) {
  * @param {number} input.days - 1-14
  * @param {number} input.peopleCount - 1-10
  * @param {number} input.meatVegRatio - 0-1
- * @param {boolean} input.allowLeftovers - whether to insert leftover entries every 2nd fresh day
+ * @param {boolean} input.allowLeftovers - when true, alternates fresh and leftover entries (F, L, F, L, ...)
  * @returns {Object} { entries, warnings }
  */
 function generateMealPlan(input) {
@@ -126,57 +126,47 @@ function generateMealPlan(input) {
   let wantMeat = false; // track for warning message
 
   // Determine how many fresh-cook days we will have based on the
-  // leftover policy. The generator inserts a leftover after every two
-  // fresh-cook days (i.e. a repeating pattern F, F, L). Over `n` total
-  // days this results in roughly two-thirds of the slots being fresh.
-  // We can compute it directly rather than solving an inequality:
-  //   freshDays = 2*floor(n/3) + min(2, n%3)
-  // which simplifies to ceil(2*n/3).
+  // leftover policy. When leftovers are enabled, the pattern is strictly
+  // alternating: fresh, leftover, fresh, leftover, ... which naturally
+  // results in ceil(n/2) fresh days and floor(n/2) leftover days.
   //
-  // This target is only used for ratio calculations; actual generation
-  // still follows the insertion rules above but will naturally produce
-  // exactly this number of fresh entries.
+  // Meat/veg ratio is calculated based on fresh days only.
   function computeFreshDays(totalDays) {
-    return Math.ceil((2 * totalDays) / 3);
+    return Math.ceil(totalDays / 2);
   }
 
   const freshDaysTarget = allowLeftovers ? computeFreshDays(days) : days;
   const targetMeatCount = Math.round(freshDaysTarget * meatVegRatio);
 
-  // Generate entries day by day (fresh and leftover combined)
+  // Generate entries day by day using alternating pattern when leftovers enabled.
+  // Pattern with leftovers: fresh, leftover, fresh, leftover, ...
+  // Pattern without leftovers: fresh, fresh, fresh, ...
   const startDateObj = new Date(`${startDate}T12:00:00`);
-  let freshCookCount = 0;
-  let lastWasLeftover = false;
+  let lastFreshRecipeId = null;
 
-  for (let dayIndex = 0; dayIndex < days; ) {
+  for (let dayIndex = 0; dayIndex < days; dayIndex++) {
     const currentDate = new Date(startDateObj);
     currentDate.setDate(currentDate.getDate() + dayIndex);
     const dateStr = toISODate(currentDate);
 
-    // Check if we should insert a leftover entry
-    // Policy: every second fresh-cook day (2nd, 4th, 6th...) gets a leftover
-    if (
-      allowLeftovers &&
-      freshCookCount > 0 &&
-      freshCookCount % 2 === 0 &&
-      !lastWasLeftover &&
-      dayIndex < days
-    ) {
+    // Determine if this day should be a leftover or fresh.
+    // With leftovers enabled, odd-indexed days (1, 3, 5, ...) are leftovers.
+    const isLeftoverSlot = allowLeftovers && dayIndex % 2 === 1;
+
+    if (isLeftoverSlot) {
+      // Insert a leftover entry referencing the previous fresh entry
       const lastEntry = entries[entries.length - 1];
-      if (lastEntry && lastEntry.type === 'fresh') {
-        // Create a leftover entry
+      if (lastEntry && lastEntry.type === 'fresh' && lastFreshRecipeId) {
         entries.push({
           date: dateStr,
           type: 'leftover',
-          recipeId: lastEntry.recipeId,
-          leftoverOfRecipeId: lastEntry.recipeId,
+          recipeId: lastFreshRecipeId,
+          leftoverOfRecipeId: lastFreshRecipeId,
           title: `Leftovers: ${lastEntry.title}`,
           protein: lastEntry.protein,
         });
-        dayIndex++;
-        lastWasLeftover = true;
-        continue;
       }
+      continue;
     }
 
     // Place a fresh-cook entry
@@ -233,6 +223,7 @@ function generateMealPlan(input) {
 
     const recipeId = String(chosen._id || chosen.id);
     lastChosenId = recipeId;
+    lastFreshRecipeId = recipeId;
     usedRecipeIds.add(recipeId);
 
     // Track meat/veg counts for fresh entries only
@@ -250,10 +241,6 @@ function generateMealPlan(input) {
       title: chosen.name || '',
       protein: chosen.protein,
     });
-
-    freshCookCount++;
-    dayIndex++;
-    lastWasLeftover = false;
   }
 
   // Warn if ratio couldn't be met
