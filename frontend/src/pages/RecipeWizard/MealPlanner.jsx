@@ -4,6 +4,7 @@ import BottomSheet from "../RecipeWizard/components/BottomSheet";
 import { Search } from "lucide-react";
 import { useApiClient } from "../../api/client";
 import { useToast } from "../../ui/toast";
+import { swapDinners } from "./mealPlanSwap";
 
 function todayISO() {
   const d = new Date();
@@ -35,6 +36,7 @@ export default function MealPlanner() {
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapIndex, setSwapIndex] = useState(null);
   const [query, setQuery] = useState("");
+
 
   const meatPercent = useMemo(() => Math.round(meatRatio * 100), [meatRatio]);
 
@@ -87,15 +89,11 @@ export default function MealPlanner() {
   const applySwap = (recipe) => {
     if (!proposal || swapIndex == null) return;
 
-    const next = structuredClone(proposal); // modern browsers ok; if needed we can replace with a simple copy
-    next.dinners[swapIndex] = {
-      date: next.dinners[swapIndex].date,
-      type: "cook",
-      recipeId: recipe._id,
-      title: recipe.name,
-    };
+    // build a new dinners array according to the MVP swap rules; helper
+    // keeps logic isolated and avoids mutating proposal in-place.
+    const newDinners = swapDinners(proposal.dinners, swapIndex, recipe);
 
-    setProposal(next);
+    setProposal({ ...proposal, dinners: newDinners });
     closeSwap();
   };
 
@@ -285,7 +283,10 @@ export default function MealPlanner() {
           </div>
 
           <div className="text-xs text-gray-500">
-            Swapping currently replaces that day with a “cook” meal (we’ll add leftovers-aware swaps later).
+            Swapping will replace the selected day (and its linked leftover if
+            one exists) with the chosen recipe. Swapping a leftover day will also
+            update its source fresh day. Manual swaps only affect the targeted
+            entries and don’t rebalance the rest of the plan.
           </div>
           {proposal.metadata && (
             <div className="text-xs text-gray-500 mt-2">
