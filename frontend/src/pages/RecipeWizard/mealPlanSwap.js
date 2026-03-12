@@ -1,87 +1,105 @@
-// helper for provisional meal-plan swaps, encapsulating all the leftover/fresh pairing
-// rules described in the project spec. exported so that it can be manually
-// exercised or unit‑tested later.
+function isLeftoverLinkedToCook(leftover, cookEntryId, fallbackCookRecipeId) {
+  if (!leftover || leftover.type !== "leftovers") return false;
+
+  if (leftover.leftoverOfEntryId && cookEntryId) {
+    return String(leftover.leftoverOfEntryId) === String(cookEntryId);
+  }
+
+  const linkedRecipeId = leftover.leftoverOfRecipeId || leftover.recipeId;
+  return String(linkedRecipeId || "") === String(fallbackCookRecipeId || "");
+}
+
+function findSourceCookIndex(entries, leftoverIndex) {
+  const leftover = entries[leftoverIndex];
+  if (!leftover || leftover.type !== "leftovers") return -1;
+
+  if (leftover.leftoverOfEntryId) {
+    const byEntryId = entries.findIndex(
+      (e) =>
+        e.type === "cook" &&
+        String(e.entryId || "") === String(leftover.leftoverOfEntryId)
+    );
+    if (byEntryId >= 0) return byEntryId;
+  }
+
+  const sourceRecipeId = leftover.leftoverOfRecipeId || leftover.recipeId;
+  if (!sourceRecipeId) return -1;
+
+  for (let i = leftoverIndex - 1; i >= 0; i -= 1) {
+    if (
+      entries[i]?.type === "cook" &&
+      String(entries[i].recipeId || "") === String(sourceRecipeId)
+    ) {
+      return i;
+    }
+  }
+
+  return entries.findIndex(
+    (e) =>
+      e.type === "cook" && String(e.recipeId || "") === String(sourceRecipeId)
+  );
+}
 
 /**
  * Perform a swap on a plan's dinners array.
  *
- * The function is pure and does **not** mutate the input array.  It returns a
- * new array of the same length with the requested replacements applied.  The
- * original objects within the array are shallow‑cloned only when they need to
- * be changed.
- *
  * Rules (MVP):
- *   1. Swapping a fresh entry that is immediately followed by a linked
- *      leftover updates both entries (fresh then leftover) to match the
- *      replacement recipe.  The leftover entry keeps the same slot and the
- *      title is kept prefixed with `Leftovers: `.
- *   2. Swapping a fresh entry with no linked leftover only updates that one
- *      slot.
- *   3. Swapping a leftover entry treats the operation as swapping its source
- *      fresh+leftover pair; the preceding entry (if `type === "cook"`) is
- *      updated alongside the leftover.  If there is no preceding fresh, only
- *      the leftover is replaced.
- *   4. Nothing else in the plan is modified; the array length is preserved.
- *
- * @param {Array} dinners  plan entry objects (date, type, recipeId, title, ...)
- * @param {number} index   index of the entry the user elected to swap
- * @param {Object} recipe  replacement recipe object ({_id,name,protein,...})
- * @returns {Array} new dinners array
+ * 1. Swapping a fresh entry updates that fresh entry and all linked leftovers.
+ * 2. Swapping a leftover swaps its source fresh entry (and all linked leftovers).
+ * 3. If a source cook cannot be resolved, only the targeted leftover is updated.
+ * 4. Array length/order is preserved.
  */
 export function swapDinners(dinners, index, recipe) {
   if (!Array.isArray(dinners)) return dinners;
-  const len = dinners.length;
-  if (index < 0 || index >= len) return dinners;
+  if (index < 0 || index >= dinners.length) return dinners;
 
-  // helper factories that copy an entry but override the relevant fields
+  const result = dinners.slice();
+  const target = result[index];
+  if (!target) return result;
+
   const makeCook = (orig) => ({
     ...orig,
-    date: orig.date,
     type: "cook",
     recipeId: recipe._id,
     title: recipe.name,
     protein: recipe.protein,
   });
 
-  const makeLeftover = (orig) => ({
+  const makeLeftover = (orig, sourceCookEntryId) => ({
     ...orig,
-    date: orig.date,
     type: "leftovers",
+    leftoverOfEntryId: sourceCookEntryId || orig.leftoverOfEntryId,
     leftoverOfRecipeId: recipe._id,
     title: `Leftovers: ${recipe.name}`,
     protein: recipe.protein,
   });
 
-  const result = dinners.slice(); // shallow copy of the array
-  const target = result[index];
-  if (!target) return result; // defensive
+  const applyCookSwap = (cookIndex) => {
+    const cook = result[cookIndex];
+    if (!cook || cook.type !== "cook") return;
+
+    const oldCookRecipeId = cook.recipeId;
+    const cookEntryId = cook.entryId;
+    result[cookIndex] = makeCook(cook);
+
+    for (let i = 0; i < result.length; i += 1) {
+      if (i === cookIndex) continue;
+      const entry = result[i];
+      if (!isLeftoverLinkedToCook(entry, cookEntryId, oldCookRecipeId)) continue;
+      result[i] = makeLeftover(entry, cookEntryId);
+    }
+  };
 
   if (target.type === "leftovers") {
-    // swap pair by updating previous fresh entry if appropriate
-    const prev = result[index - 1];
-    if (prev && prev.type === "cook") {
-      result[index - 1] = makeCook(prev);
-      result[index] = makeLeftover(target);
+    const sourceCookIndex = findSourceCookIndex(result, index);
+    if (sourceCookIndex >= 0) {
+      applyCookSwap(sourceCookIndex);
     } else {
-      // fall back to replacing only the leftover itself
-      result[index] = makeLeftover(target);
+      result[index] = makeLeftover(target, target.leftoverOfEntryId);
     }
-  } else {
-    // fresh/cook entry
-    const next = result[index + 1];
-    if (
-      next &&
-      next.type === "leftovers" &&
-      next.leftoverOfRecipeId === target.recipeId
-    ) {
-      // linked pair: update both slots
-      result[index] = makeCook(target);
-      result[index + 1] = makeLeftover(next);
-    } else {
-      // standalone fresh day
-      result[index] = makeCook(target);
-    }
+    return result;
   }
 
+  applyCookSwap(index);
   return result;
 }
