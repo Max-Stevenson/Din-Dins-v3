@@ -26,13 +26,13 @@ function validateInputs(startDate, days, peopleCount, meatVegRatio) {
   }
 
   // Validate days
-  if (!Number.isInteger(days) || days < 1 || days > 14) {
-    throw new Error('days must be an integer between 1 and 14');
+  if (!Number.isInteger(days) || days < 1 || days > 31) {
+    throw new Error('days must be an integer between 1 and 31');
   }
 
   // Validate peopleCount
-  if (!Number.isInteger(peopleCount) || peopleCount < 1 || peopleCount > 10) {
-    throw new Error('peopleCount must be an integer between 1 and 10');
+  if (!Number.isInteger(peopleCount) || peopleCount < 1 || peopleCount > 20) {
+    throw new Error('peopleCount must be an integer between 1 and 20');
   }
 
   // Validate meatVegRatio
@@ -69,8 +69,8 @@ function compareRecipes(a, b) {
  * @param {Object} input
  * @param {Array} input.recipes - array of recipe objects
  * @param {string} input.startDate - YYYY-MM-DD format, today or future
- * @param {number} input.days - 1-14
- * @param {number} input.peopleCount - 1-10
+ * @param {number} input.days - 1-31
+ * @param {number} input.peopleCount - 1-20
  * @param {number} input.meatVegRatio - 0-1
  * @param {boolean} input.allowLeftovers - when true, alternates fresh and leftover entries (F, L, F, L, ...)
  * @returns {Object} { entries, warnings }

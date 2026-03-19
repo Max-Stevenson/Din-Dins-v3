@@ -42,14 +42,6 @@ export function createApiClient(apiFetch) {
           body: JSON.stringify(payload),
         });
       },
-      // temporary v2 endpoint that returns raw plan entries + metadata
-      generateV2(payload) {
-        return apiFetch("/api/v1/meal-plans/generate-v2", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      },
       create(payload) {
         return apiFetch("/api/v1/meal-plans", {
           method: "POST",

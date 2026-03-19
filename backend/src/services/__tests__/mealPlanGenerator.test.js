@@ -61,20 +61,20 @@ describe('mealPlanGenerator', () => {
           meatVegRatio: 0.5,
           allowLeftovers: false,
         })
-      ).toThrow(/days must be an integer between 1 and 14/i);
+      ).toThrow(/days must be an integer between 1 and 31/i);
     });
 
-    it('rejects days > 14', () => {
+    it('rejects days > 31', () => {
       expect(() =>
         generateMealPlan({
           recipes: [makeRecipe('r1', 'Test', 'Vegetarian')],
           startDate: '3000-01-01',
-          days: 15,
+          days: 32,
           peopleCount: 1,
           meatVegRatio: 0.5,
           allowLeftovers: false,
         })
-      ).toThrow(/days must be an integer between 1 and 14/i);
+      ).toThrow(/days must be an integer between 1 and 31/i);
     });
 
     it('rejects non-integer days', () => {
@@ -87,7 +87,7 @@ describe('mealPlanGenerator', () => {
           meatVegRatio: 0.5,
           allowLeftovers: false,
         })
-      ).toThrow(/days must be an integer between 1 and 14/i);
+      ).toThrow(/days must be an integer between 1 and 31/i);
     });
   });
 
@@ -102,20 +102,20 @@ describe('mealPlanGenerator', () => {
           meatVegRatio: 0.5,
           allowLeftovers: false,
         })
-      ).toThrow(/peopleCount must be an integer between 1 and 10/i);
+      ).toThrow(/peopleCount must be an integer between 1 and 20/i);
     });
 
-    it('rejects peopleCount > 10', () => {
+    it('rejects peopleCount > 20', () => {
       expect(() =>
         generateMealPlan({
           recipes: [makeRecipe('r1', 'Test', 'Vegetarian')],
           startDate: '3000-01-01',
           days: 1,
-          peopleCount: 11,
+          peopleCount: 21,
           meatVegRatio: 0.5,
           allowLeftovers: false,
         })
-      ).toThrow(/peopleCount must be an integer between 1 and 10/i);
+      ).toThrow(/peopleCount must be an integer between 1 and 20/i);
     });
 
     it('rejects non-integer peopleCount', () => {
@@ -128,7 +128,7 @@ describe('mealPlanGenerator', () => {
           meatVegRatio: 0.5,
           allowLeftovers: false,
         })
-      ).toThrow(/peopleCount must be an integer between 1 and 10/i);
+      ).toThrow(/peopleCount must be an integer between 1 and 20/i);
     });
   });
 

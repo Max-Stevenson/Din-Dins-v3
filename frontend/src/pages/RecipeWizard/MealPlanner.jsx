@@ -225,7 +225,6 @@ export default function MealPlanner() {
   const [people, setPeople] = useState(2);
   const [meatRatio, setMeatRatio] = useState(0.5);
   const [allowLeftovers, setAllowLeftovers] = useState(true);
-  const [useV2, setUseV2] = useState(false);
 
   const [proposal, setProposal] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -328,8 +327,7 @@ export default function MealPlanner() {
   const generate = async () => {
     setLoading(true);
     try {
-      const endpoint = useV2 ? api.mealPlans.generateV2 : api.mealPlans.generate;
-      const res = await endpoint({
+      const res = await api.mealPlans.generate({
         startDate,
         days,
         people,
@@ -343,40 +341,7 @@ export default function MealPlanner() {
       }
 
       const data = await res.json();
-      if (useV2) {
-        const plan = data.plan || {};
-        const dinners = (plan.entries || []).map((entry) => {
-          if (entry.type === "fresh") {
-            return {
-              type: "cook",
-              recipeId: entry.recipeId,
-              title: entry.title,
-            };
-          }
-          return {
-            type: "leftovers",
-            leftoverOfRecipeId: entry.leftoverOfRecipeId || entry.recipeId,
-            title: entry.title,
-          };
-        });
-
-        setProposal(
-          normalizeProposal(
-            {
-              startDate,
-              days,
-              people,
-              meatRatio,
-              allowLeftovers,
-              dinners,
-              metadata: data.metadata,
-            },
-            startDate
-          )
-        );
-      } else {
-        setProposal(normalizeProposal(data.proposal, startDate));
-      }
+      setProposal(normalizeProposal(data.proposal, startDate));
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -468,14 +433,6 @@ export default function MealPlanner() {
           Allow leftovers
         </label>
 
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={useV2}
-            onChange={(e) => setUseV2(e.target.checked)}
-          />
-          Use new generator (v2)
-        </label>
 
         <button
           type="button"
@@ -571,7 +528,7 @@ export default function MealPlanner() {
                 >
                   <div className="text-sm font-semibold text-gray-900">{r.name}</div>
                   <div className="text-xs text-gray-600">
-                    {r.protein} • {r.portions} portions
+                    {r.protein} - {r.portions} portions
                   </div>
                   {Array.isArray(r.tags) && r.tags.length ? (
                     <div className="mt-2 flex flex-wrap gap-1">

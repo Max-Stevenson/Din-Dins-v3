@@ -18,20 +18,6 @@ async function generate(req, res) {
   return res.json(result);
 }
 
-async function generateV2(req, res) {
-  const validation = validateGenerateRequest(req.body);
-  if (validation.error) {
-    return res.status(400).json({ error: validation.error });
-  }
-
-  const result = await mealPlanService.generateProposalV2({
-    userId: req.userId,
-    ...validation.value,
-  });
-
-  return res.json(result);
-}
-
 async function create(req, res) {
   const validation = validateCreateMealPlanRequest(req.body);
   if (validation.error) {
@@ -66,7 +52,6 @@ async function getById(req, res) {
 
 module.exports = {
   generate,
-  generateV2,
   create,
   list,
   getById,
