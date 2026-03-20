@@ -5,6 +5,20 @@ import ProteinGrid from "../components/ProteinGrid";
 import Card from "../components/Card";
 
 export default function BasicsStep({ recipe, setRecipe, basicsValid }) {
+  const cookTimeMinutes = (String(recipe.cookTime || "").match(/\d+/) || [""])[0];
+
+  const handleCookTimeChange = (value) => {
+    const digitsOnly = value.replace(/\D/g, "");
+
+    if (!digitsOnly) {
+      setRecipe({ ...recipe, cookTime: "" });
+      return;
+    }
+
+    const minutes = String(parseInt(digitsOnly, 10));
+    setRecipe({ ...recipe, cookTime: `${minutes} minutes` });
+  };
+
   return (
     <Card>
       <FieldRow
@@ -66,13 +80,18 @@ export default function BasicsStep({ recipe, setRecipe, basicsValid }) {
         icon={<Clock className="h-5 w-5" />}
         label="Cook Time"
         right={
-          <input
-            type="text"
-            placeholder="e.g. 40 min"
-            className="w-28 bg-transparent text-right text-sm text-gray-900 placeholder:text-gray-400 outline-none"
-            value={recipe.cookTime}
-            onChange={(e) => setRecipe({ ...recipe, cookTime: e.target.value })}
-          />
+          <div className="flex items-center justify-end gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="40"
+              className="w-14 bg-transparent text-right text-sm text-gray-900 placeholder:text-gray-400 outline-none"
+              value={cookTimeMinutes}
+              onChange={(e) => handleCookTimeChange(e.target.value)}
+            />
+            <span className="text-sm text-gray-600">minutes</span>
+          </div>
         }
       />
 
