@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApiClient } from "../../api/client";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
+import { filterRecipes } from "./recipeFilters";
 
 export default function RecipesList() {
   const [items, setItems] = useState([]);
@@ -42,11 +43,9 @@ export default function RecipesList() {
   ];
 
   const filtered = useMemo(() => {
-    const q = (debouncedQuery || "").trim().toLowerCase();
-    return items.filter((r) => {
-      if (protein && protein !== "All" && r.protein !== protein) return false;
-      if (q && !(r.name || "").toLowerCase().includes(q)) return false;
-      return true;
+    return filterRecipes(items, {
+      query: debouncedQuery,
+      protein,
     });
   }, [items, debouncedQuery, protein]);
 
