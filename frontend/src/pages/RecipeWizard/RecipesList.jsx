@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApiClient } from "../../api/client";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
-import { filterRecipes } from "./recipeFilters";
+import { filterRecipes, paginateRecipes } from "./recipeFilters";
 
 export default function RecipesList() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [protein, setProtein] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
   const debouncedQuery = useDebouncedValue(query, 300);
   const api = useApiClient();
 
@@ -49,6 +50,20 @@ export default function RecipesList() {
     });
   }, [items, debouncedQuery, protein]);
 
+  const pagination = useMemo(() => {
+    return paginateRecipes(filtered, currentPage);
+  }, [filtered, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, protein]);
+
+  useEffect(() => {
+    if (currentPage > pagination.totalPages) {
+      setCurrentPage(pagination.totalPages);
+    }
+  }, [currentPage, pagination.totalPages]);
+
   function clearFilters() {
     setQuery("");
     setProtein("All");
@@ -58,7 +73,7 @@ export default function RecipesList() {
     return (
       <div className="mx-auto max-w-md">
         <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5 text-sm text-gray-600">
-          Loading…
+          Loading...
         </div>
       </div>
     );
@@ -78,9 +93,9 @@ export default function RecipesList() {
               <button
                 aria-label="Clear search"
                 onClick={() => setQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-gray-100 p-1 text-sm text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-gray-100 px-2 py-1 text-sm text-gray-600"
               >
-                ×
+                &times;
               </button>
             ) : null}
           </div>
@@ -108,7 +123,9 @@ export default function RecipesList() {
           ))}
         </div>
 
-        <div className="text-xs text-gray-500">Showing {filtered.length} of {items.length}</div>
+        <div className="text-xs text-gray-500">
+          Showing {filtered.length} of {items.length}
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -137,34 +154,68 @@ export default function RecipesList() {
             </div>
           </div>
         ) : (
-          filtered.map((r) => (
-            <Link
-              key={r._id}
-              to={`/recipes/${r._id}`}
-              className="block rounded-2xl bg-white p-4 ring-1 ring-black/5 active:opacity-80 hover:bg-gray-50"
-            >
-              <div className="font-semibold text-gray-900">{r.name}</div>
-              <div className="text-sm text-gray-600">
-                {r.protein} • {r.portions} portions
-                {r.cookTime ? ` • ${r.cookTime}` : ""}
-              </div>
-
-              {r.tags?.length ? (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {r.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
-                    >
-                      {t}
-                    </span>
-                  ))}
+          <>
+            {pagination.items.map((r) => (
+              <Link
+                key={r._id}
+                to={`/recipes/${r._id}`}
+                className="block rounded-2xl bg-white p-4 ring-1 ring-black/5 active:opacity-80 hover:bg-gray-50"
+              >
+                <div className="font-semibold text-gray-900">{r.name}</div>
+                <div className="text-sm text-gray-600">
+                  {r.protein} &bull; {r.portions} portions
+                  {r.cookTime ? ` • ${r.cookTime}` : ""}
                 </div>
-              ) : null}
 
-              <div className="mt-3 text-xs font-semibold text-blue-600">View →</div>
-            </Link>
-          ))
+                {r.tags?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {r.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-700"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="mt-3 text-xs font-semibold text-blue-600">
+                  View &rarr;
+                </div>
+              </Link>
+            ))}
+
+            {pagination.totalPages > 1 ? (
+              <div className="flex items-center justify-between gap-2 rounded-2xl bg-white p-3 ring-1 ring-black/5">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={pagination.currentPage === 1}
+                  className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+
+                <div className="text-sm text-gray-600">
+                  Page {pagination.currentPage} of {pagination.totalPages}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(pagination.totalPages, page + 1)
+                    )
+                  }
+                  disabled={pagination.currentPage === pagination.totalPages}
+                  className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>
