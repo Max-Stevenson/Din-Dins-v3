@@ -480,12 +480,6 @@ export default function MealPlanner() {
             </SortableContext>
           </DndContext>
 
-          <div className="text-xs text-gray-500">
-            Swapping will replace the selected day (and linked leftovers) with the
-            chosen recipe. Swapping a leftover day updates its source fresh day.
-            Manual swaps only affect linked entries and do not rebalance the rest
-            of the plan.
-          </div>
           {proposal.metadata && (
             <div className="text-xs text-gray-500 mt-2">
               Fresh: {proposal.metadata.freshCount}, Leftovers: {proposal.metadata.leftoverCount}
