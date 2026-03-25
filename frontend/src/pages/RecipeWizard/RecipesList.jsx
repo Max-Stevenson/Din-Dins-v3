@@ -21,6 +21,8 @@ export default function RecipesList() {
   });
   const debouncedQuery = useDebouncedValue(query, 300);
   const api = useApiClient();
+  const listRecipes = api.recipes.list;
+  const hasLoadedRef = useRef(false);
   const previousFiltersRef = useRef({
     query: debouncedQuery,
     protein,
@@ -40,10 +42,10 @@ export default function RecipesList() {
     }
 
     async function load() {
-      if (!ignore && !loading) setIsFetching(true);
+      if (!ignore && hasLoadedRef.current) setIsFetching(true);
 
       try {
-        const res = await api.recipes.list({
+        const res = await listRecipes({
           page: currentPage,
           pageSize: PAGE_SIZE,
           query: debouncedQuery,
@@ -68,6 +70,7 @@ export default function RecipesList() {
           query: debouncedQuery,
           protein,
         };
+        hasLoadedRef.current = true;
 
         if (data.pagination?.page && data.pagination.page !== currentPage) {
           setCurrentPage(data.pagination.page);
@@ -84,7 +87,7 @@ export default function RecipesList() {
     return () => {
       ignore = true;
     };
-  }, [currentPage, debouncedQuery, protein]);
+  }, [currentPage, debouncedQuery, listRecipes, protein]);
 
   const proteins = [
     "All",

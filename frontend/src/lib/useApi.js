@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 
 export function useApi() {
@@ -5,7 +6,7 @@ export function useApi() {
   const apiBase = import.meta.env.VITE_API_BASE_URL || "";
   const { getAccessTokenSilently, isAuthenticated } = useAuth0();
 
-  async function apiFetch(path, options = {}) {
+  const apiFetch = useCallback(async (path, options = {}) => {
     const headers = new Headers(options.headers || {});
     const isFormData = options.body instanceof FormData;
 
@@ -33,7 +34,7 @@ export function useApi() {
     }
 
     return fetch(url, { ...options, headers });
-  }
+  }, [apiBase, authEnabled, getAccessTokenSilently, isAuthenticated]);
 
-  return { apiFetch };
+  return useMemo(() => ({ apiFetch }), [apiFetch]);
 }
