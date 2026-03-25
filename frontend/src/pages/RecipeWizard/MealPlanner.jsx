@@ -19,6 +19,15 @@ import BottomSheet from "../RecipeWizard/components/BottomSheet";
 import { GripVertical, Search } from "lucide-react";
 import { useApiClient } from "../../api/client";
 import { useToast } from "../../ui/toast";
+import {
+  applyLeftoverSlots,
+  createEntryId,
+  enforceLeftoverOrder,
+  isFreshEntry,
+  isLeftoverEntry,
+  normalizePlannerEntries,
+  summarizeProposalEntries,
+} from "../../lib/mealPlanEntries";
 import { swapDinners } from "./mealPlanSwap";
 
 function todayISO() {
@@ -48,95 +57,15 @@ function deriveDateForIndex(startDate, index) {
   return toISODate(addDays(start, index));
 }
 
-function createEntryId(index) {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `entry-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function findSourceCookIndex(entries, leftover, maxIndex = entries.length - 1) {
-  if (!leftover || leftover.type !== "leftovers") return -1;
-
-  if (leftover.leftoverOfEntryId) {
-    const byEntryId = entries.findIndex(
-      (e) =>
-        e.type === "cook" &&
-        String(e.entryId || "") === String(leftover.leftoverOfEntryId)
-    );
-    if (byEntryId >= 0) return byEntryId;
-  }
-
-  const sourceRecipeId = leftover.leftoverOfRecipeId || leftover.recipeId;
-  if (!sourceRecipeId) return -1;
-
-  for (let i = Math.min(maxIndex, entries.length - 1); i >= 0; i -= 1) {
-    const e = entries[i];
-    if (e?.type !== "cook") continue;
-    if (String(e.recipeId || "") === String(sourceRecipeId)) return i;
-  }
-
-  return entries.findIndex(
-    (e) => e.type === "cook" && String(e.recipeId || "") === String(sourceRecipeId)
-  );
-}
-
-function normalizeProposalDinners(rawDinners) {
-  const dinners = Array.isArray(rawDinners) ? rawDinners : [];
-
-  const withIds = dinners.map((entry, index) => ({
-    ...entry,
-    entryId: entry.entryId || createEntryId(index),
-  }));
-
-  return withIds.map((entry, index) => {
-    if (entry.type !== "leftovers") return entry;
-
-    if (entry.leftoverOfEntryId) {
-      const hasSource = withIds.some(
-        (e) => e.type === "cook" && String(e.entryId) === String(entry.leftoverOfEntryId)
-      );
-      if (hasSource) return entry;
-    }
-
-    const sourceIndex = findSourceCookIndex(withIds, entry, index - 1);
-    if (sourceIndex < 0) return entry;
-
-    return {
-      ...entry,
-      leftoverOfEntryId: withIds[sourceIndex].entryId,
-    };
-  });
-}
-
 function normalizeProposal(rawProposal, fallbackStartDate) {
   const startDate = rawProposal?.startDate || fallbackStartDate || todayISO();
+  const dinners = normalizePlannerEntries(rawProposal?.dinners);
   return {
     ...(rawProposal || {}),
     startDate,
-    dinners: normalizeProposalDinners(rawProposal?.dinners),
+    days: dinners.length || rawProposal?.days || 0,
+    dinners,
   };
-}
-
-function enforceLeftoversAfterSource(entries) {
-  const next = entries.slice();
-
-  for (let i = 0; i < next.length; i += 1) {
-    const entry = next[i];
-    if (!entry || entry.type !== "leftovers") continue;
-
-    let sourceIndex = findSourceCookIndex(next, entry, next.length - 1);
-    if (sourceIndex < 0) continue;
-
-    if (i <= sourceIndex) {
-      const [moved] = next.splice(i, 1);
-      if (sourceIndex > i) sourceIndex -= 1;
-      next.splice(sourceIndex + 1, 0, moved);
-      i = -1;
-    }
-  }
-
-  return next;
 }
 
 function toSavePayload(proposal) {
@@ -145,28 +74,42 @@ function toSavePayload(proposal) {
     ? proposal.dinners.map((entry, index) => {
         const date = deriveDateForIndex(startDate, index);
 
-        if (entry.type === "leftovers") {
+        if (isLeftoverEntry(entry)) {
           return {
+            entryId: entry.entryId || createEntryId(index),
             date,
             type: "leftovers",
+            entryType: "leftover",
+            legacyType: "leftovers",
+            recipeId: entry.recipeId || null,
             leftoverOfRecipeId:
               entry.leftoverOfRecipeId || entry.recipeId || null,
+            sourceCookEntryId:
+              entry.sourceCookEntryId || entry.leftoverOfEntryId || null,
+            leftoverOfEntryId:
+              entry.sourceCookEntryId || entry.leftoverOfEntryId || null,
             title: entry.title || "",
+            protein: entry.protein || "",
           };
         }
 
         return {
+          entryId: entry.entryId || createEntryId(index),
           date,
           type: "cook",
+          entryType: "fresh",
+          legacyType: "cook",
           recipeId: entry.recipeId || null,
           title: entry.title || "",
+          protein: entry.protein || "",
+          leftoverSlots: Number.isFinite(entry.leftoverSlots) ? entry.leftoverSlots : 0,
         };
       })
     : [];
 
   return {
     startDate,
-    days: proposal?.days,
+    days: dinners.length,
     people: proposal?.people,
     meatRatio: proposal?.meatRatio,
     allowLeftovers: proposal?.allowLeftovers,
@@ -174,7 +117,38 @@ function toSavePayload(proposal) {
   };
 }
 
-function SortableDinnerRow({ entry, dateLabel, onSwap }) {
+function LeftoverSlotControl({ value, onChange }) {
+  const options = [0, 1, 2];
+
+  return (
+    <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+        Leftovers
+      </div>
+      <div className="inline-flex rounded-lg bg-gray-100 p-1 ring-1 ring-gray-200">
+        {options.map((option) => {
+          const active = option === value;
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => onChange(option)}
+              className={`min-w-8 rounded-md px-2 py-1 text-xs font-semibold transition ${
+                active
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-700 hover:bg-white active:opacity-80"
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SortableDinnerRow({ entry, dateLabel, onSwap, onLeftoverSlotsChange }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: entry.entryId });
 
@@ -191,17 +165,32 @@ function SortableDinnerRow({ entry, dateLabel, onSwap }) {
         isDragging ? "opacity-75" : ""
       }`}
     >
-      <button
-        type="button"
-        onClick={() => onSwap(entry.entryId)}
-        className="min-w-0 flex-1 px-3 py-3 text-left active:opacity-80"
-      >
-        <div className="text-xs text-gray-500">{dateLabel}</div>
-        <div className="truncate text-sm font-semibold text-gray-900">
-          {entry.title || (entry.type === "leftovers" ? "Leftovers" : "Cook")}
-        </div>
-        <div className="text-xs text-gray-600">Tap to swap</div>
-      </button>
+      <div className="min-w-0 flex-1 px-3 py-3">
+        <button
+          type="button"
+          onClick={() => onSwap(entry.entryId)}
+          className="min-w-0 w-full text-left active:opacity-80"
+        >
+          <div className="text-xs text-gray-500">{dateLabel}</div>
+          <div className="truncate text-sm font-semibold text-gray-900">
+            {entry.title || (isLeftoverEntry(entry) ? "Leftovers" : "Cook")}
+          </div>
+          <div className="text-xs text-gray-600">
+            {isLeftoverEntry(entry)
+              ? "Tap to swap the source cook"
+              : "Tap to swap"}
+          </div>
+        </button>
+
+        {isFreshEntry(entry) ? (
+          <LeftoverSlotControl
+            value={entry.leftoverSlots || 0}
+            onChange={(value) => onLeftoverSlotsChange(entry.entryId, value)}
+          />
+        ) : (
+          <div className="mt-2 text-xs text-amber-700">Uses leftovers from its cook day</div>
+        )}
+      </div>
 
       <button
         type="button"
@@ -244,6 +233,14 @@ export default function MealPlanner() {
   );
 
   const meatPercent = useMemo(() => Math.round(meatRatio * 100), [meatRatio]);
+  const proposalMetadata = useMemo(
+    () =>
+      summarizeProposalEntries(
+        proposal?.dinners,
+        proposal?.metadata?.warnings || []
+      ),
+    [proposal]
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -251,7 +248,7 @@ export default function MealPlanner() {
     async function loadRecipes() {
       setRecipesLoading(true);
       try {
-        const res = await api.recipes.list();
+        const res = await api.recipes.list({ pageSize: 250 });
         const data = await res.json();
         if (!ignore) setRecipes(data.items || []);
       } catch {
@@ -300,11 +297,31 @@ export default function MealPlanner() {
       if (swapIndex < 0) return prev;
 
       const swapped = swapDinners(prev.dinners, swapIndex, recipe);
-      const corrected = enforceLeftoversAfterSource(swapped);
-      return { ...prev, dinners: corrected };
+      const corrected = normalizePlannerEntries(enforceLeftoverOrder(swapped));
+      return {
+        ...prev,
+        days: corrected.length,
+        dinners: corrected,
+      };
     });
 
     closeSwap();
+  };
+
+  const handleLeftoverSlotsChange = (cookEntryId, slots) => {
+    setProposal((prev) => {
+      if (!prev) return prev;
+
+      const nextDinners = normalizePlannerEntries(
+        applyLeftoverSlots(prev.dinners, cookEntryId, slots)
+      );
+
+      return {
+        ...prev,
+        days: nextDinners.length,
+        dinners: nextDinners,
+      };
+    });
   };
 
   const handleDragEnd = ({ active, over }) => {
@@ -319,7 +336,7 @@ export default function MealPlanner() {
       if (oldIndex < 0 || newIndex < 0) return prev;
 
       const moved = arrayMove(prev.dinners, oldIndex, newIndex);
-      const corrected = enforceLeftoversAfterSource(moved);
+      const corrected = normalizePlannerEntries(enforceLeftoverOrder(moved));
       return { ...prev, dinners: corrected };
     });
   };
@@ -474,18 +491,19 @@ export default function MealPlanner() {
                     entry={entry}
                     dateLabel={deriveDateForIndex(proposal.startDate, idx)}
                     onSwap={openSwap}
+                    onLeftoverSlotsChange={handleLeftoverSlotsChange}
                   />
                 ))}
               </div>
             </SortableContext>
           </DndContext>
 
-          {proposal.metadata && (
+          {proposalMetadata && (
             <div className="text-xs text-gray-500 mt-2">
-              Fresh: {proposal.metadata.freshCount}, Leftovers: {proposal.metadata.leftoverCount}
-              {proposal.metadata.warnings && proposal.metadata.warnings.length > 0 && (
+              Fresh: {proposalMetadata.freshCount}, Leftovers: {proposalMetadata.leftoverCount}
+              {proposalMetadata.warnings && proposalMetadata.warnings.length > 0 && (
                 <div className="mt-1">
-                  {proposal.metadata.warnings.map((w, i) => (
+                  {proposalMetadata.warnings.map((w, i) => (
                     <div key={i}>{w}</div>
                   ))}
                 </div>

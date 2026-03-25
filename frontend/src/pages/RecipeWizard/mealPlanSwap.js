@@ -1,44 +1,9 @@
-function isLeftoverLinkedToCook(leftover, cookEntryId, fallbackCookRecipeId) {
-  if (!leftover || leftover.type !== "leftovers") return false;
-
-  if (leftover.leftoverOfEntryId && cookEntryId) {
-    return String(leftover.leftoverOfEntryId) === String(cookEntryId);
-  }
-
-  const linkedRecipeId = leftover.leftoverOfRecipeId || leftover.recipeId;
-  return String(linkedRecipeId || "") === String(fallbackCookRecipeId || "");
-}
-
-function findSourceCookIndex(entries, leftoverIndex) {
-  const leftover = entries[leftoverIndex];
-  if (!leftover || leftover.type !== "leftovers") return -1;
-
-  if (leftover.leftoverOfEntryId) {
-    const byEntryId = entries.findIndex(
-      (e) =>
-        e.type === "cook" &&
-        String(e.entryId || "") === String(leftover.leftoverOfEntryId)
-    );
-    if (byEntryId >= 0) return byEntryId;
-  }
-
-  const sourceRecipeId = leftover.leftoverOfRecipeId || leftover.recipeId;
-  if (!sourceRecipeId) return -1;
-
-  for (let i = leftoverIndex - 1; i >= 0; i -= 1) {
-    if (
-      entries[i]?.type === "cook" &&
-      String(entries[i].recipeId || "") === String(sourceRecipeId)
-    ) {
-      return i;
-    }
-  }
-
-  return entries.findIndex(
-    (e) =>
-      e.type === "cook" && String(e.recipeId || "") === String(sourceRecipeId)
-  );
-}
+import {
+  findSourceCookIndex,
+  isFreshEntry,
+  isLeftoverEntry,
+  isLeftoverLinkedToCook,
+} from "../../lib/mealPlanEntries.js";
 
 /**
  * Perform a swap on a plan's dinners array.
@@ -59,7 +24,7 @@ export function swapDinners(dinners, index, recipe) {
 
   const makeCook = (orig) => ({
     ...orig,
-    type: "cook",
+    type: "fresh",
     recipeId: recipe._id,
     title: recipe.name,
     protein: recipe.protein,
@@ -67,8 +32,12 @@ export function swapDinners(dinners, index, recipe) {
 
   const makeLeftover = (orig, sourceCookEntryId) => ({
     ...orig,
-    type: "leftovers",
-    leftoverOfEntryId: sourceCookEntryId || orig.leftoverOfEntryId,
+    type: "leftover",
+    recipeId: recipe._id,
+    sourceCookEntryId:
+      sourceCookEntryId || orig.sourceCookEntryId || orig.leftoverOfEntryId,
+    leftoverOfEntryId:
+      sourceCookEntryId || orig.sourceCookEntryId || orig.leftoverOfEntryId,
     leftoverOfRecipeId: recipe._id,
     title: `Leftovers: ${recipe.name}`,
     protein: recipe.protein,
@@ -76,7 +45,7 @@ export function swapDinners(dinners, index, recipe) {
 
   const applyCookSwap = (cookIndex) => {
     const cook = result[cookIndex];
-    if (!cook || cook.type !== "cook") return;
+    if (!isFreshEntry(cook)) return;
 
     const oldCookRecipeId = cook.recipeId;
     const cookEntryId = cook.entryId;
@@ -90,12 +59,15 @@ export function swapDinners(dinners, index, recipe) {
     }
   };
 
-  if (target.type === "leftovers") {
-    const sourceCookIndex = findSourceCookIndex(result, index);
+  if (isLeftoverEntry(target)) {
+    const sourceCookIndex = findSourceCookIndex(result, target, index);
     if (sourceCookIndex >= 0) {
       applyCookSwap(sourceCookIndex);
     } else {
-      result[index] = makeLeftover(target, target.leftoverOfEntryId);
+      result[index] = makeLeftover(
+        target,
+        target.sourceCookEntryId || target.leftoverOfEntryId
+      );
     }
     return result;
   }

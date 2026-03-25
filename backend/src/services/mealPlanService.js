@@ -1,6 +1,12 @@
 const MealPlan = require("../models/MealPlan");
 const Recipe = require("../models/Recipe");
 const generateMealPlan = require("./mealPlanGenerator");
+const {
+  createEntryId,
+  isFreshDinner,
+  normalizeDinners,
+  serializeMealPlan,
+} = require("./mealPlanEntries");
 
 function buildMealPlan({
   recipes,
@@ -28,27 +34,40 @@ function buildProposalFromPlan({
   meatRatio,
   allowLeftovers,
 }) {
-  const dinners = (plan.entries || []).map((entry) => {
-    if (entry.type === "fresh") {
-      return {
-        date: entry.date,
-        type: "cook",
-        recipeId: entry.recipeId,
-        title: entry.title || "",
-      };
-    }
+  let lastFreshEntryId = null;
 
-    return {
-      date: entry.date,
-      type: "leftovers",
-      leftoverOfRecipeId: entry.leftoverOfRecipeId || entry.recipeId || null,
-      title: entry.title || "Leftovers",
-    };
-  });
+  const dinners = normalizeDinners(
+    (plan.entries || []).map((entry, index) => {
+      if (entry.type === "fresh") {
+        lastFreshEntryId = createEntryId(index);
+        return {
+          entryId: lastFreshEntryId,
+          date: entry.date,
+          type: "fresh",
+          recipeId: entry.recipeId,
+          title: entry.title || "",
+          protein: entry.protein || "",
+          leftoverSlots: 0,
+        };
+      }
+
+      return {
+        entryId: createEntryId(index),
+        date: entry.date,
+        type: "leftover",
+        recipeId: entry.recipeId || null,
+        leftoverOfRecipeId: entry.leftoverOfRecipeId || entry.recipeId || null,
+        sourceCookEntryId: lastFreshEntryId,
+        leftoverOfEntryId: lastFreshEntryId,
+        title: entry.title || "Leftovers",
+        protein: entry.protein || "",
+      };
+    })
+  );
 
   return {
     startDate,
-    days,
+    days: dinners.length || days,
     people,
     meatRatio,
     allowLeftovers,
@@ -102,19 +121,20 @@ async function createMealPlan({
   allowLeftovers,
   dinners,
 }) {
+  const normalizedDinners = normalizeDinners(dinners);
   const item = await MealPlan.create({
     userId,
     startDate,
-    days,
+    days: normalizedDinners.length || days,
     people,
     meatRatio,
     allowLeftovers,
-    dinners,
+    dinners: normalizedDinners,
   });
 
   // Update lastPlannedAt only for cook meals
-  const cookedIds = dinners
-    .filter((d) => d.type === "cook" && d.recipeId)
+  const cookedIds = normalizedDinners
+    .filter((d) => isFreshDinner(d) && d.recipeId)
     .map((d) => d.recipeId);
 
   if (cookedIds.length) {
@@ -124,15 +144,17 @@ async function createMealPlan({
     );
   }
 
-  return item;
+  return serializeMealPlan(item);
 }
 
 async function listMealPlans({ userId }) {
-  return MealPlan.find({ userId }).sort({ createdAt: -1 }).limit(100);
+  const items = await MealPlan.find({ userId }).sort({ createdAt: -1 }).limit(100);
+  return items.map((item) => serializeMealPlan(item));
 }
 
 async function getMealPlanById({ userId, id }) {
-  return MealPlan.findOne({ _id: id, userId });
+  const item = await MealPlan.findOne({ _id: id, userId });
+  return serializeMealPlan(item);
 }
 
 module.exports = {

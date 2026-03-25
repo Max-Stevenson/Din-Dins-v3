@@ -10,10 +10,12 @@ function makeEntry({
   protein = "beef",
   leftoverOfRecipeId,
   leftoverOfEntryId,
+  sourceCookEntryId,
 }) {
   const e = { entryId, date, type, recipeId, title, protein };
   if (leftoverOfRecipeId) e.leftoverOfRecipeId = leftoverOfRecipeId;
   if (leftoverOfEntryId) e.leftoverOfEntryId = leftoverOfEntryId;
+  if (sourceCookEntryId) e.sourceCookEntryId = sourceCookEntryId;
   return e;
 }
 
@@ -29,6 +31,7 @@ const dinner = { _id: "r3", name: "Dinner", protein: "fish" };
       type: "leftovers",
       leftoverOfRecipeId: "r1",
       leftoverOfEntryId: "c1",
+      sourceCookEntryId: "c1",
       title: "Leftovers: Breakfast",
     }),
     makeEntry({ entryId: "c2", date: "2026-01-03", recipeId: "r9" }),
@@ -38,6 +41,7 @@ const dinner = { _id: "r3", name: "Dinner", protein: "fish" };
       type: "leftovers",
       leftoverOfRecipeId: "r1",
       leftoverOfEntryId: "c1",
+      sourceCookEntryId: "c1",
       title: "Leftovers: Breakfast",
     }),
   ];
@@ -45,10 +49,14 @@ const dinner = { _id: "r3", name: "Dinner", protein: "fish" };
   const out = swapDinners(plan, 0, lunch);
 
   assert.strictEqual(out[0].recipeId, "r2");
+  assert.strictEqual(out[1].recipeId, "r2");
+  assert.strictEqual(out[3].recipeId, "r2");
   assert.strictEqual(out[1].leftoverOfRecipeId, "r2");
   assert.strictEqual(out[3].leftoverOfRecipeId, "r2");
   assert.strictEqual(out[1].leftoverOfEntryId, "c1");
   assert.strictEqual(out[3].leftoverOfEntryId, "c1");
+  assert.strictEqual(out[1].sourceCookEntryId, "c1");
+  assert.strictEqual(out[3].sourceCookEntryId, "c1");
   console.log("testFreshWithMultipleLinkedLeftovers ok");
 })();
 
@@ -62,6 +70,7 @@ const dinner = { _id: "r3", name: "Dinner", protein: "fish" };
       type: "leftovers",
       leftoverOfRecipeId: "r1",
       leftoverOfEntryId: "c1",
+      sourceCookEntryId: "c1",
       title: "Leftovers: Breakfast",
     }),
   ];
@@ -69,8 +78,10 @@ const dinner = { _id: "r3", name: "Dinner", protein: "fish" };
   const out = swapDinners(plan, 2, dinner);
 
   assert.strictEqual(out[0].recipeId, "r3");
+  assert.strictEqual(out[2].recipeId, "r3");
   assert.strictEqual(out[2].leftoverOfRecipeId, "r3");
   assert.strictEqual(out[2].leftoverOfEntryId, "c1");
+  assert.strictEqual(out[2].sourceCookEntryId, "c1");
   assert.strictEqual(out[1].recipeId, "r9");
   console.log("testSwapLeftoverUsesSourceFresh ok");
 })();

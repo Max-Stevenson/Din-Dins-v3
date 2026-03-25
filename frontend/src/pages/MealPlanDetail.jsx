@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApiClient } from "../api/client";
+import { isFreshEntry, isLeftoverEntry } from "../lib/mealPlanEntries";
 
 export default function MealPlanDetail() {
   const { id } = useParams();
@@ -75,8 +76,7 @@ export default function MealPlanDetail() {
       ) : (
         <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5 space-y-2">
           {(item.dinners || []).map((d, idx) => {
-            const recipeId =
-              d.type === "cook" ? d.recipeId : d.leftoverOfRecipeId;
+            const recipeId = isFreshEntry(d) ? d.recipeId : d.leftoverOfRecipeId;
             const to = recipeId ? `/recipes/${recipeId}` : null;
 
             const Row = (
@@ -84,22 +84,22 @@ export default function MealPlanDetail() {
                 <div className="min-w-0">
                   <div className="text-xs text-gray-500">{d.date}</div>
                   <div className="text-sm font-semibold text-gray-900 truncate">
-                    {d.title || (d.type === "leftovers" ? "Leftovers" : "Cook")}
+                    {d.title || (isLeftoverEntry(d) ? "Leftovers" : "Cook")}
                   </div>
                   <div className="text-xs text-gray-600">
-                    {d.type === "leftovers" ? "Use leftovers" : "Cook meal"}
+                    {isLeftoverEntry(d) ? "Use leftovers" : "Cook meal"}
                   </div>
                 </div>
 
                 <div
                   className={[
                     "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
-                    d.type === "leftovers"
+                    isLeftoverEntry(d)
                       ? "bg-amber-100 text-amber-700"
                       : "bg-green-100 text-green-700",
                   ].join(" ")}
                 >
-                  {d.type === "leftovers" ? "Leftovers" : "Cook"}
+                  {isLeftoverEntry(d) ? "Leftovers" : "Cook"}
                 </div>
               </div>
             );

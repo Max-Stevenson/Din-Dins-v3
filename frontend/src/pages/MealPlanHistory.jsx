@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApiClient } from "../api/client";
+import { isLeftoverEntry } from "../lib/mealPlanEntries";
 
 function formatDate(isoYYYYMMDD) {
   return isoYYYYMMDD || "";
@@ -97,7 +98,7 @@ export default function MealPlanHistory() {
                     key={idx}
                     className={[
                       "h-2 rounded-full",
-                      d.type === "leftovers" ? "bg-amber-300" : "bg-green-400",
+                      isLeftoverEntry(d) ? "bg-amber-300" : "bg-green-400",
                     ].join(" ")}
                     title={d.title || d.type}
                   />

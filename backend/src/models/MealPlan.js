@@ -2,16 +2,27 @@ const mongoose = require("mongoose");
 
 const DinnerSchema = new mongoose.Schema(
   {
+    entryId: { type: String, default: "" },
     date: { type: String, required: true }, // YYYY-MM-DD (simple + timezone-safe)
-    type: { type: String, enum: ["cook", "leftovers"], required: true },
+    type: {
+      type: String,
+      enum: ["cook", "leftovers", "fresh", "leftover"],
+      required: true,
+    },
+    entryType: { type: String, enum: ["fresh", "leftover"], default: null },
+    legacyType: { type: String, enum: ["cook", "leftovers"], default: null },
 
     // If type === "cook"
     recipeId: { type: mongoose.Schema.Types.ObjectId, ref: "Recipe", default: null },
+    leftoverSlots: { type: Number, default: 0, min: 0, max: 2 },
 
     // If type === "leftovers"
     leftoverOfRecipeId: { type: mongoose.Schema.Types.ObjectId, ref: "Recipe", default: null },
+    sourceCookEntryId: { type: String, default: null },
+    leftoverOfEntryId: { type: String, default: null },
 
-    title: { type: String, default: "" } // optional display text
+    title: { type: String, default: "" }, // optional display text
+    protein: { type: String, default: "" },
   },
   { _id: false }
 );
