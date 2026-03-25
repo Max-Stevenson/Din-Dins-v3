@@ -4,8 +4,18 @@ import { useApi } from "../lib/useApi";
 export function createApiClient(apiFetch) {
   return {
     recipes: {
-      list() {
-        return apiFetch("/api/v1/recipes");
+      list(params = {}) {
+        const search = new URLSearchParams();
+
+        Object.entries(params).forEach(([key, value]) => {
+          if (value == null || value === "") return;
+          search.set(key, String(value));
+        });
+
+        const query = search.toString();
+        return apiFetch(
+          query ? `/api/v1/recipes?${query}` : "/api/v1/recipes"
+        );
       },
       getById(id) {
         return apiFetch(`/api/v1/recipes/${id}`);

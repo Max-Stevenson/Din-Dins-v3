@@ -1,28 +1,82 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApiClient } from "../../api/client";
 import useDebouncedValue from "../../hooks/useDebouncedValue";
-import { filterRecipes, paginateRecipes } from "./recipeFilters";
+
+const PAGE_SIZE = 6;
 
 export default function RecipesList() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [query, setQuery] = useState("");
   const [protein, setProtein] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalRecipes, setTotalRecipes] = useState(0);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: PAGE_SIZE,
+    totalItems: 0,
+    totalPages: 1,
+  });
   const debouncedQuery = useDebouncedValue(query, 300);
   const api = useApiClient();
+  const previousFiltersRef = useRef({
+    query: debouncedQuery,
+    protein,
+  });
 
   useEffect(() => {
     let ignore = false;
+    const filtersChanged =
+      previousFiltersRef.current.query !== debouncedQuery ||
+      previousFiltersRef.current.protein !== protein;
+
+    if (filtersChanged && currentPage !== 1) {
+      setCurrentPage(1);
+      return () => {
+        ignore = true;
+      };
+    }
 
     async function load() {
+      if (!ignore && !loading) setIsFetching(true);
+
       try {
-        const res = await api.recipes.list();
+        const res = await api.recipes.list({
+          page: currentPage,
+          pageSize: PAGE_SIZE,
+          query: debouncedQuery,
+          protein,
+        });
         const data = await res.json();
-        if (!ignore) setItems(data.items || []);
+
+        if (ignore) return;
+
+        setItems(data.items || []);
+        setTotalRecipes(Number(data.totalRecipes) || 0);
+        setPagination(
+          data.pagination || {
+            page: 1,
+            pageSize: PAGE_SIZE,
+            totalItems: 0,
+            totalPages: 1,
+          }
+        );
+
+        previousFiltersRef.current = {
+          query: debouncedQuery,
+          protein,
+        };
+
+        if (data.pagination?.page && data.pagination.page !== currentPage) {
+          setCurrentPage(data.pagination.page);
+        }
       } finally {
-        if (!ignore) setLoading(false);
+        if (!ignore) {
+          setLoading(false);
+          setIsFetching(false);
+        }
       }
     }
 
@@ -30,7 +84,7 @@ export default function RecipesList() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [currentPage, debouncedQuery, protein]);
 
   const proteins = [
     "All",
@@ -43,30 +97,14 @@ export default function RecipesList() {
     "Other",
   ];
 
-  const filtered = useMemo(() => {
-    return filterRecipes(items, {
-      query: debouncedQuery,
-      protein,
-    });
-  }, [items, debouncedQuery, protein]);
-
-  const pagination = useMemo(() => {
-    return paginateRecipes(filtered, currentPage);
-  }, [filtered, currentPage]);
-
-  useEffect(() => {
-    setCurrentPage(1);
+  const hasActiveFilters = useMemo(() => {
+    return Boolean(query.trim()) || protein !== "All";
   }, [query, protein]);
-
-  useEffect(() => {
-    if (currentPage > pagination.totalPages) {
-      setCurrentPage(pagination.totalPages);
-    }
-  }, [currentPage, pagination.totalPages]);
 
   function clearFilters() {
     setQuery("");
     setProtein("All");
+    setCurrentPage(1);
   }
 
   if (loading)
@@ -85,14 +123,18 @@ export default function RecipesList() {
           <div className="relative flex-1">
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+              }}
               placeholder="Search recipes"
               className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm"
             />
             {query ? (
               <button
                 aria-label="Clear search"
-                onClick={() => setQuery("")}
+                onClick={() => {
+                  setQuery("");
+                }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-gray-100 px-2 py-1 text-sm text-gray-600"
               >
                 &times;
@@ -111,7 +153,10 @@ export default function RecipesList() {
           {proteins.map((p) => (
             <button
               key={p}
-              onClick={() => setProtein(p)}
+              onClick={() => {
+                setProtein(p);
+                setCurrentPage(1);
+              }}
               className={`whitespace-nowrap rounded-full px-3 py-1 text-sm ${
                 protein === p
                   ? "bg-blue-600 text-white"
@@ -124,12 +169,13 @@ export default function RecipesList() {
         </div>
 
         <div className="text-xs text-gray-500">
-          Showing {filtered.length} of {items.length}
+          Showing {items.length} of {pagination.totalItems}
+          {isFetching ? " Updating..." : ""}
         </div>
       </div>
 
       <div className="space-y-2">
-        {items.length === 0 ? (
+        {totalRecipes === 0 ? (
           <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5 text-sm text-gray-600">
             No recipes yet.
             <div className="mt-3">
@@ -141,21 +187,23 @@ export default function RecipesList() {
               </Link>
             </div>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : pagination.totalItems === 0 ? (
           <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5 text-sm text-gray-600">
             No matches.
             <div className="mt-3 flex gap-2">
-              <button
-                onClick={clearFilters}
-                className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-800"
-              >
-                Clear filters
-              </button>
+              {hasActiveFilters ? (
+                <button
+                  onClick={clearFilters}
+                  className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-800"
+                >
+                  Clear filters
+                </button>
+              ) : null}
             </div>
           </div>
         ) : (
           <>
-            {pagination.items.map((r) => (
+            {items.map((r) => (
               <Link
                 key={r._id}
                 to={`/recipes/${r._id}`}
@@ -164,7 +212,7 @@ export default function RecipesList() {
                 <div className="font-semibold text-gray-900">{r.name}</div>
                 <div className="text-sm text-gray-600">
                   {r.protein} &bull; {r.portions} portions
-                  {r.cookTime ? ` • ${r.cookTime}` : ""}
+                  {r.cookTime ? ` - ${r.cookTime}` : ""}
                 </div>
 
                 {r.tags?.length ? (
@@ -191,14 +239,14 @@ export default function RecipesList() {
                 <button
                   type="button"
                   onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  disabled={pagination.currentPage === 1}
+                  disabled={currentPage === 1}
                   className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 disabled:opacity-50"
                 >
                   Previous
                 </button>
 
                 <div className="text-sm text-gray-600">
-                  Page {pagination.currentPage} of {pagination.totalPages}
+                  Page {currentPage} of {pagination.totalPages}
                 </div>
 
                 <button
@@ -208,7 +256,7 @@ export default function RecipesList() {
                       Math.min(pagination.totalPages, page + 1)
                     )
                   }
-                  disabled={pagination.currentPage === pagination.totalPages}
+                  disabled={currentPage === pagination.totalPages}
                   className="rounded-xl bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 disabled:opacity-50"
                 >
                   Next

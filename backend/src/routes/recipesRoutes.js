@@ -3,14 +3,61 @@ const Recipe = require("../models/Recipe");
 
 const router = express.Router();
 
+function toPositiveInt(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // GET /api/recipes
 router.get("/", async (req, res) => {
   try {
-    const recipes = await Recipe.find({ userId: req.userId })
-      .sort({ updatedAt: -1 })
-      .limit(200);
+    const pageSize = Math.min(toPositiveInt(req.query.pageSize, 6), 50);
+    const requestedPage = toPositiveInt(req.query.page, 1);
+    const query = String(req.query.query || "").trim();
+    const protein = String(req.query.protein || "All").trim();
 
-    res.json({ items: recipes });
+    const baseFilter = { userId: req.userId };
+    const listFilter = { ...baseFilter };
+
+    if (query) {
+      listFilter.name = { $regex: escapeRegex(query), $options: "i" };
+    }
+
+    if (protein && protein.toLowerCase() !== "all") {
+      listFilter.protein = {
+        $regex: `^${escapeRegex(protein)}$`,
+        $options: "i",
+      };
+    }
+
+    const [totalRecipes, totalItems] = await Promise.all([
+      Recipe.countDocuments(baseFilter),
+      Recipe.countDocuments(listFilter),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const page = Math.min(requestedPage, totalPages);
+
+    const recipes = await Recipe.find(listFilter)
+      .sort({ updatedAt: -1 })
+      .skip((page - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
+
+    res.json({
+      items: recipes,
+      totalRecipes,
+      pagination: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch recipes" });
   }
