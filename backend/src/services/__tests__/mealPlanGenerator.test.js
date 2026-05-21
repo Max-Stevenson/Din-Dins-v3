@@ -310,6 +310,27 @@ describe('mealPlanGenerator', () => {
   });
 
   describe('generation: meat/veg ratio', () => {
+    it('treats lowercase vegetarian values as vegetarian', () => {
+      const recipes = [
+        makeRecipe('m1', 'Meat1', 'Chicken'),
+        makeRecipe('v1', 'Veg1', 'vegetarian'),
+      ];
+
+      const result = generateMealPlan({
+        recipes,
+        startDate: '3000-01-01',
+        days: 2,
+        peopleCount: 1,
+        meatVegRatio: 0,
+        allowLeftovers: false,
+      });
+
+      const vegCount = result.entries.filter(
+        (e) => e.protein.toLowerCase() === 'vegetarian'
+      ).length;
+      expect(vegCount).toBe(2);
+    });
+
     it('approximates 50/50 meat/veg ratio across fresh days', () => {
       const recipes = [
         makeRecipe('m1', 'Meat1', 'Chicken'),

@@ -3,6 +3,8 @@
  * No DB calls, no mutations of input arrays, fully deterministic.
  */
 
+const { normalizeProteinValue } = require("../validators/recipeValidators");
+
 function toISODate(d) {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -42,7 +44,7 @@ function validateInputs(startDate, days, peopleCount, meatVegRatio) {
 }
 
 function isVegetarian(recipe) {
-  return String(recipe.protein) === 'Vegetarian';
+  return normalizeProteinValue(recipe?.protein) === 'Vegetarian';
 }
 
 function compareRecipes(a, b) {

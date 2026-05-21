@@ -1,4 +1,10 @@
 const mongoose = require("mongoose");
+const {
+  CANONICAL_PROTEINS,
+  isValidCookTimeValue,
+  normalizeCookTimeValue,
+  normalizeProteinValue,
+} = require("../validators/recipeValidators");
 
 const IngredientSchema = new mongoose.Schema(
   {
@@ -21,10 +27,25 @@ const RecipeSchema = new mongoose.Schema(
     userId: { type: String, required: true, index: true },
 
     name: { type: String, required: true, trim: true },
-    protein: { type: String, required: true, trim: true },
+    protein: {
+      type: String,
+      required: true,
+      trim: true,
+      enum: CANONICAL_PROTEINS,
+      set: normalizeProteinValue,
+    },
     portions: { type: Number, required: true, min: 1 },
 
-    cookTime: { type: String, default: "" }, // later: consider minutes int
+    cookTime: {
+      type: String,
+      default: "",
+      trim: true,
+      set: normalizeCookTimeValue,
+      validate: {
+        validator: isValidCookTimeValue,
+        message: "Cook time must be a positive whole number of minutes",
+      },
+    }, // later: consider minutes int
     tags: [{ type: String, trim: true }],
 
     ingredients: { type: [IngredientSchema], default: [] },
