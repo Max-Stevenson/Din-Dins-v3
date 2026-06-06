@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useApiClient } from "../api/client";
+import { getRecipeImageUrl, hasRecipeImage } from "../lib/recipeImages";
 import { useToast } from "../ui/toast";
 
 function displayQty(qty, unit, name) {
@@ -64,6 +65,10 @@ export default function RecipeDetail() {
 
   const tags = useMemo(
     () => (Array.isArray(item?.tags) ? item.tags : []),
+    [item],
+  );
+  const detailImageUrl = useMemo(
+    () => (item ? getRecipeImageUrl(item, "detail") : ""),
     [item],
   );
 
@@ -134,16 +139,20 @@ export default function RecipeDetail() {
 
       {item ? (
         <>
-          {item?.imageUrl ? (
-            <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+          <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+            <div className="flex min-h-56 items-center justify-center bg-gray-100">
               <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="h-48 w-full object-cover"
+                src={detailImageUrl}
+                alt={
+                  hasRecipeImage(item)
+                    ? `${item.name} recipe`
+                    : `${item.name} placeholder`
+                }
+                className="max-h-[28rem] w-full object-contain"
                 loading="lazy"
               />
             </div>
-          ) : null}
+          </div>
 
           <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
             <div className="text-sm font-semibold text-gray-900">
