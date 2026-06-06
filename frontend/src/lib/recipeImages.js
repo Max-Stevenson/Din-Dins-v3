@@ -1,5 +1,7 @@
+const DEFAULT_CLOUDINARY_CLOUD_NAME = "dreuybj1x";
+
 const CLOUDINARY_CLOUD_NAME =
-  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
+  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || DEFAULT_CLOUDINARY_CLOUD_NAME;
 
 const PLACEHOLDER_PUBLIC_ID =
   "din-dins/dev-user/recipes/urd26pd1caikm4qv5taq";
